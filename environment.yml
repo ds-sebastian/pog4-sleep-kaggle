@@ -1,0 +1,34 @@
+# Conda environment file
+
+name: pog4-sleep
+channels:
+  - pytorch-nightly
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - pandas-profiling
+    - kaggle
+    - xgboost
+  - pandas
+  - numpy
+  - seaborn
+  - ipykernel
+  - jupyterlab
+  - polars
+  - matplotlib
+  - scikit-learn
+  - catboost
+  - scipy
+  - statsmodels
+  - ipywidgets
+  - tqdm
+  - wandb
+  - transformers
+  - pytorch #=2.0 #::pytorch-nightly
+  - pytorch-cuda=11.7 #::nvidia
+
+

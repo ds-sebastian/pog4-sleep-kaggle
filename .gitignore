@@ -1,0 +1,4 @@
+.vscode
+wandb/
+*.zip
+data/xml_export
