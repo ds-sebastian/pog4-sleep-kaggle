@@ -1,0 +1,27 @@
+name: lstm_sweep
+program: lstm_sweep.py
+method: random
+metric:
+  name: "Validation Loss"
+  goal: minimize
+parameters:
+  learning_rate:
+    min: 0.0001
+    max: 0.01
+  dropout_prob:
+    min: 0.0
+    max: 0.5
+  batch_size:
+    values: [8, 32, 64]
+  hidden_size:
+    values: [16, 32, 64, 128]
+  num_layers:
+    values: [2, 3]
+  lookback:
+    values: [3, 5, 7, 14]
+  optimizer:
+    values: ['adam', 'sgd', 'rmsprop', 'adamw']
+  activation_function:
+    values: ['relu', 'tanh', 'sigmoid']
+  loss_function:
+    values: ['mse', 'mae', 'huber']
