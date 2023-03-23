@@ -106,7 +106,13 @@ def create_data(path, type="train", preprocessor=None, xml_files_names = ["Basal
     ### Time series Data ###
     logging.info("Featurizing time series data")
     df["day_of_week"] = pd.to_datetime(df["date"]).dt.dayofweek # Day of the week
+    df["dow_sin"] = np.sin(df['day_of_week'] * (2 * np.pi / 7))
+    df["dow_cos"] = np.cos(df['day_of_week'] * (2 * np.pi / 7))
+    
     df["day_of_year"] = pd.to_datetime(df["date"]).dt.dayofyear
+    df["doy_sin"] = np.sin(df['day_of_year'] * (2 * np.pi / 365))
+    df["doy_cos"] = np.cos(df['day_of_year'] * (2 * np.pi / 365))
+    
     df["month"] = pd.to_datetime(df["date"]).dt.month # Month
     df["month_sin"] = np.sin(df['month'] * (2 * np.pi / 12))
     df["is_weekend"] = df["day_of_week"].apply(lambda x: 1 if x >= 5 else 0) # is_weekend
@@ -150,14 +156,19 @@ def create_data(path, type="train", preprocessor=None, xml_files_names = ["Basal
     df["calorie_per_step"] = df["BasalEnergyBurned"] / df["StepCount"] # To account for intensity of exercise
     df["calorie_per_distance"] = df["BasalEnergyBurned"] / df["DistanceWalkingRunning"] # Gym days vs. Outdoor days
     
-    # Drop not unique columns
-    not_unique = ["BasalEnergyBurned_mx_st_hr_sin", "BasalEnergyBurned_mx_st_hr_cos", "BasalEnergyBurned_mx_et_hr_sin", "BasalEnergyBurned_mx_et_hr_cos", "BodyMassIndex_mx_st_hr_sin", "BodyMassIndex_mx_st_hr_cos", "BodyMassIndex_mn_st_hr_sin", "BodyMassIndex_mn_st_hr_cos", "BodyMassIndex_mx_et_hr_sin", "BodyMassIndex_mx_et_hr_cos", "BodyMassIndex_mn_et_hr_sin", "BodyMassIndex_mn_et_hr_cos"]
-    df = df.drop(columns=not_unique, axis=1, errors="ignore")
+
 
     logging.info("Saving to Parquet file...")
     df.to_parquet(f"./{type}_data.parquet")
     
     if type == "train":
+        
+        #! Drop not unique columns
+        threshold = 0.05
+        unique_pct = df.nunique() / len(df)
+
+        df = df.drop(unique_pct[unique_pct <= threshold].index, axis=1)
+        
         """ If training data, fit a preprocessor"""
         y = df["sleep_hours"]
         X = df.drop(columns=["date","sleep_hours"], axis =1 ) # Drop date column

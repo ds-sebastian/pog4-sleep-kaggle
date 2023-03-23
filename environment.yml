@@ -10,7 +10,7 @@ dependencies:
   - python=3.9
   - pip
   - pip:
-    - pandas-profiling
+    - ydata-profiling
     - kaggle
     - xgboost
   - pandas

@@ -2,3 +2,4 @@
 wandb/
 *.zip
 data/xml_export
+.archive
