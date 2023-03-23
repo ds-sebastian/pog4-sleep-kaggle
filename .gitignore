@@ -3,3 +3,6 @@ wandb/
 *.zip
 data/xml_export
 .archive
+*.parquet
+*.xml
+*.html
