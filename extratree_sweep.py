@@ -6,7 +6,7 @@ import json
 import numpy as np
 import pandas as pd
 
-import xgboost as xgb
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
 
@@ -19,17 +19,16 @@ def sweep():
     run = wandb.init()
     config = wandb.config
     
-    xgb_params = {
-        "learning_rate": config.learning_rate,
-        "max_depth": config.max_depth,
+    et_params = {
         "n_estimators": config.n_estimators,
-        "subsample": config.subsample,
-        "colsample_bytree": config.colsample_bytree,
-        "objective": "reg:squarederror",
-        "seed": 42
+        "max_depth": config.max_depth,
+        "min_samples_split": config.min_samples_split,
+        "min_samples_leaf": config.min_samples_leaf,
+        "max_features": config.max_features,
+        "bootstrap": config.bootstrap,
     }
 
-    model = xgb.XGBRegressor(**xgb_params, gpu_id=0, tree_method="gpu_hist")
+    model = ExtraTreesRegressor(**et_params)
     
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -55,20 +54,20 @@ if __name__ == "__main__":
     y = pd.concat([data.y_train, data.y_test], axis = 0)
     
     # Load the sweep configuration from the YAML file
-    with open("xgb_sweep_config.yml") as f:
+    with open("sweep.yaml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_xgb")
-    wandb.agent(sweep_id, function=sweep, count=500)
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_et")
+    wandb.agent(sweep_id, function=sweep, count=100)
     
     api = wandb.Api()
-    runs = api.runs("sgobat/pog4_xgb")
+    runs = api.runs("sgobat/pog4_et")
 
     best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config
-    with open("xgb_best_params.json", "w") as f:
+    with open("et_best_params.json", "w") as f:
         json.dump(best_params, f)
 
     print(f"Best run: {best_run.id}")

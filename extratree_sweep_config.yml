@@ -1,0 +1,22 @@
+name: pog4_et_sweep
+method: bayes
+metric:
+  name: RMSE
+  goal: minimize
+parameters:
+  n_estimators:
+    min: 100
+    max: 2000
+  max_depth:
+    min: 1
+    max: 15
+  min_samples_split:
+    min: 2
+    max: 10
+  min_samples_leaf:
+    min: 1
+    max: 10
+  max_features:
+    values: ["auto", "sqrt", "log2"]
+  bootstrap:
+    values: [True, False]

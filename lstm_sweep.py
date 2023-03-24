@@ -9,23 +9,24 @@ from torch.utils.data import DataLoader
 
 import wandb
 
-from helper import *
+from data import *
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-def create_sequences(data, lookback):
-    X, y = [], []
-    for i in range(len(data)-lookback-1):
-        X.append(data[i:(i+lookback), :])
-        y.append(data[i+lookback, 0])
-    return np.array(X), np.array(y)
-
-def create_input_sequences(data, lookback):
+def create_sequences(data, lookback, with_y=True):
     X = []
-    for i in range(len(data) - lookback):
-        X.append(data[i:(i + lookback), :])
-    return np.array(X)
+    for i in range(lookback, len(data)):
+        X.append(data[i-lookback:i, :])
+
+    X = np.array(X)
+
+    if with_y:
+        y = data[lookback:, 0]
+        return X, np.array(y)
+    else:
+        return X
+
 
 class TimeSeriesModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers, dropout_prob, activation_function='relu'):
@@ -120,15 +121,15 @@ def evaluate_model(model, valid_loader, criterion, device, wandb_log = False):
     return epoch_loss
 
 
-def predict(model, submission_loader, device):
+def predict_gru(model, data, device):
     model.eval()  # Set the model to evaluation mode
     predictions = []
 
     with torch.no_grad():
-        for inputs in submission_loader:
-            inputs = inputs.to(device)
-            outputs = model(inputs)
-            predictions.extend(outputs.cpu().numpy().flatten())
+        # Convert the NumPy array to a PyTorch tensor and move it to the specified device
+        inputs = torch.tensor(data, dtype=torch.float32).to(device)
+        outputs = model(inputs)
+        predictions.extend(outputs.cpu().numpy().flatten())
 
     return np.array(predictions)
 

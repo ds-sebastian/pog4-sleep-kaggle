@@ -1,27 +1,21 @@
-#wandb: View sweep at: https://wandb.ai/sgobat/pog4/sweeps/k5wa3b91
-#wandb: Run sweep agent with: wandb agent sgobat/pog4/k5wa3b91
-name: xgboost_timeseries_sweep
-program: xgb_sweep.py
+name: pog4_xgb_sweep
 method: bayes
 metric:
-  name: rmse
+  name: RMSE
   goal: minimize
 parameters:
   learning_rate:
-    min: 0.01
+    min: 0.001
     max: 0.5
   max_depth:
-    min: 3
-    max: 10
+    min: 2
+    max: 12
   n_estimators:
     min: 100
-    max: 1000
+    max: 2000
   subsample:
-    min: 0.5
+    min: 0.25
     max: 1.0
   colsample_bytree:
-    min: 0.5
+    min: 0.25
     max: 1.0
-  top_n_features:
-    min: 5
-    max: 50
