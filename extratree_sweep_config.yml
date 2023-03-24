@@ -17,6 +17,6 @@ parameters:
     min: 1
     max: 10
   max_features:
-    values: ["auto", "sqrt", "log2"]
+    values: ["auto"]
   bootstrap:
     values: [True, False]

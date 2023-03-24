@@ -9,7 +9,7 @@ import pytz
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler 
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s") # Configure logging
 
@@ -21,7 +21,8 @@ class POG4_Dataset():
         self.X = self.train.drop(columns=["sleep_hours", "date"])
         self.features = self.X.columns
         self.y = self.train["sleep_hours"].fillna(method="ffill")
-
+        self.preprocessor = None 
+        
     @staticmethod
     def _fix_doubling(df: pd.DataFrame, col: str, date_col: str = "date", start_date: str = "2017-09-27", end_date: str = "2018-06-12") -> pd.DataFrame:
         """Fixes doubling happening in a dataframe for a specific column"""
@@ -220,7 +221,17 @@ class POG4_Dataset():
         
         return X_train, X_test
     
-    
+    def scale_target(self):
+        """scales the target variable - sleep hours (useful for NNs)"""
+        logging.info("Scaling target variable with minmax")
+        scaler = MinMaxScaler()
+        y_train = scaler.fit_transform(self.y_train.values.reshape(-1,1))
+        y_test = scaler.transform(self.y_test.values.reshape(-1,1))
+        
+        self.target_scaler = scaler
+        
+        return y_train, y_test
+        
     def create_submission(self, model, submission_path: str = "./data/test.csv") -> pd.DataFrame:
         """Create submission dataset with provided path."""
         logging.info("Creating submission dataset")
