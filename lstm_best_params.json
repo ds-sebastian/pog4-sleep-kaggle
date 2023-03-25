@@ -1,0 +1,12 @@
+{
+    "lookback": 5,
+    "criterion": "mae",
+    "optimizer": "adam",
+    "batch_size": 57,
+    "num_epochs": 300,
+    "num_layers": 4,
+    "hidden_size": 53,
+    "dropout_rate": 0.573910052437709,
+    "learning_rate": 0.0028844062595003396,
+    "activation_function": "linear"
+}

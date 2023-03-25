@@ -254,6 +254,7 @@ class POG4_Dataset():
     
         self.X = X
         self.features = X.columns
+        self.lags = True
         
     def train_test_split(self, train_size: float = 0.8):
         """Split data into train and test set"""
@@ -311,6 +312,7 @@ class POG4_Dataset():
         df["date"] = pd.to_datetime(df["date"]).dt.date
         
         df = df.merge(self.xml_data, on="date", how="left")
+        df = df.merge(self.activity_data, on="date", how="left") #Add Activity data
         df = self._feature_engineering(df)
         df = df[self.columns] # Keep only columns that are in the train data
         
@@ -318,6 +320,15 @@ class POG4_Dataset():
         
         df = df.drop(columns=["date", "sleep_hours"], errors = 'ignore') # Drop date column from df
         logging.debug(f"Submission columns: {df.columns}")
+        
+        # if self.lags:
+        # # Iterate through prediction days and create lags using previous predictions
+        # # Assume 0 for initial lags
+        #     for i in range(1, 8):
+        #         df[f"sleep_hours_lag_{i}"] = 0
+        #         df[f"sleep_hours_lag_{i}"] = df[f"sleep_hours_lag_{i}"].fillna(df[f"sleep_hours_lag_{i}"].mean())
+
+
         
         if self.preprocessor is not None:
             df = pd.DataFrame(self.preprocessor.transform(df), columns = self.features)   

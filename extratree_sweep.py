@@ -55,6 +55,7 @@ if __name__ == "__main__":
     
     # Load the dataset
     data = POG4_Dataset()
+    data.create_lags()
     data.train_test_split()
     data.preprocess_data()
 
