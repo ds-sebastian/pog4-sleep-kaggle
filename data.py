@@ -1,22 +1,35 @@
 import logging
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
 from typing import List
+import warnings
 
-import numpy as np
-import pandas as pd
-import pytz
-from pandas.tseries.holiday import USFederalHolidayCalendar
-from sklearn.impute import SimpleImputer
+
+from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.impute import SimpleImputer
+import pytz
+from pandas.tseries.holiday import USFederalHolidayCalendar
+import pandas as pd
+import numpy as np
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s") # Configure logging
+from hmmlearn import hmm
+
+
+warnings.filterwarnings("ignore")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s") # Configure logging
+
+# Original columns = ["BasalEnergyBurned", "BodyMass", "FlightsClimbed", "StepCount", "BodyMassIndex", "DistanceWalkingRunning"]
+# Activity Summary is by date!
+
 
 class POG4_Dataset():
     """Initialize Dataset class."""
-    def __init__( self, train_path: str = "./data/train.csv",  xml_export_path: str = "./data/xml_export") -> None:
-        self.xml_data = self.create_xml_data(xml_export_path, ["BasalEnergyBurned", "BodyMass", "FlightsClimbed", "StepCount", "BodyMassIndex", "DistanceWalkingRunning"])
+    def __init__(self, train_path: str = "./data/train.csv",  xml_export_path: str = "./data/xml_export", start_date = "2018-01-01") -> None:
+        self.start_date = start_date
+        self.xml_data = self.create_xml_data(xml_export_path, ['Workout', 'WalkingSpeed', 'ActiveEnergyBurned', 'RunningSpeed', 'AppleWalkingSteadiness', 'EnvironmentalAudioExposure', 'StairDescentSpeed', 'LowHeartRateEvent', 'RunningGroundContactTime', 'DistanceCycling', 'HandwashingEvent', 'NumberOfTimesFallen', 'BasalEnergyBurned', 'MindfulSession', 'SixMinuteWalkTestDistance', 'StairAscentSpeed', 'HKDataTypeSleepDurationGoal', 'HeartRateVariabilitySDNN', 'Height', 'OxygenSaturation', 'RunningStrideLength', 'HeartRateRecoveryOneMinute', 'WalkingStepLength', 'SwimmingStrokeCount', 'BodyMass', 'FlightsClimbed', 'DietaryEnergyConsumed', 'AudioExposureEvent', 'HeadphoneAudioExposure', 'StepCount', 'WalkingAsymmetryPercentage', 'RespiratoryRate', 'HeartRate', 'DietaryWater', 'BodyMassIndex', 'RunningPower', 'VO2Max', 'DistanceWalkingRunning', 'HeadphoneAudioExposureEvent', 'HighHeartRateEvent', 'WalkingDoubleSupportPercentage', 'AppleExerciseTime', 'RestingHeartRate', 'AppleStandTime', 'WalkingHeartRateAverage', 'DistanceSwimming', 'EnvironmentalSoundReduction', 'AppleStandHour', 'RunningVerticalOscillation'])
+        self.activity_data = self.create_activity_data(os.path.join(xml_export_path, "ActivitySummary.csv"))
         self.train = self.create_train(train_path)
         self.X = self.train.drop(columns=["sleep_hours", "date"])
         self.features = self.X.columns
@@ -50,6 +63,7 @@ class POG4_Dataset():
         csv_df = pd.read_csv(path, low_memory=False)
         base_name = os.path.basename(path).split(".")[0]
 
+        value = "totalEnergyBurned" if base_name == "Workout" else "value"
         agg_func = "mean" if base_name == "BodyMassIndex" else "sum"
         
         csv_df["startDate"] = pd.to_datetime(csv_df["startDate"]).dt.tz_convert("US/Eastern")
@@ -60,27 +74,44 @@ class POG4_Dataset():
         groupby_agg = {
             "startDate": ["max", "min"],
             "endDate": ["max", "min"],
-            "value": agg_func
+            f"{value}": agg_func
         }
 
-        csv_df = csv_df.groupby("date").agg(groupby_agg).reset_index()
-        csv_df.columns = ["_".join(tup).rstrip("_") for tup in csv_df.columns.values]
+        df = csv_df.groupby("date").agg(groupby_agg).reset_index()
+        df.columns = ["_".join(tup).rstrip("_") for tup in df.columns.values]
 
-        csv_df = csv_df.rename(columns={f"value_{agg_func}": base_name})
+        df = df.rename(columns={f"{value}_{agg_func}": base_name})
         
         for time_col in ["startDate_max", "startDate_min", "endDate_max", "endDate_min"]:
-            # Trigonomic Hours
+            # Hours
             col_prefix = f"{base_name}_{time_col}_"
-            csv_df[col_prefix + "hr_sin"] = np.sin(2 * np.pi * csv_df[time_col].dt.hour / 24)
-            csv_df[col_prefix + "hr_cos"] = np.cos(2 * np.pi * csv_df[time_col].dt.hour / 24)
+            df[col_prefix + "hr"] = df[time_col].dt.hour
+
 
         # Attempt to manually calculate sleep time - doesn't work, but still useful
-        csv_df[base_name+"_hrs_btween"] = (csv_df["startDate_min"].shift(-1) - csv_df["startDate_max"]).dt.total_seconds() / 3600
+        df[base_name+"_hrs_btween"] = (df["startDate_min"].shift(-1) - df["startDate_max"]).dt.total_seconds() / 3600
 
-        csv_df = self._fix_doubling(csv_df, base_name)
-        csv_df = csv_df.drop(columns=["startDate_max", "startDate_min", "endDate_max", "endDate_min"]) 
+        df = self._fix_doubling(df, base_name)
+        df = df.drop(columns=["startDate_max", "startDate_min", "endDate_max", "endDate_min"]) 
+        
+        
+        # Sleep Modeling - HIGHLY EXPERIMENTAL
+        if base_name in ["HeartRate", "RestingHeartRate", "StepCount","DistanceWalkingRunning"]:
+            sleep_estimates = self._estimate_sleep_lengths_hmm(csv_df[["startDate", "value"]], "value")
+            sleep_estimates = sleep_estimates.rename(columns={"sleep_hours": f"{base_name}_sleep_hours"})
+            #FutureWarning: Comparison of Timestamp with datetime.date is deprecated in order to match the standard library behavior. In a future version these will be considered non-comparable. Use 'ts == pd.Timestamp(date)' or 'ts.date() == date' instead.
+            df = df.merge(sleep_estimates, how="left", on = "date")
 
-        return csv_df
+        return df
+
+    def _workout_features(self, path: str) -> pd.DataFrame:
+        logging.debug(f"Featurizing {path}")
+        workout = pd.read_csv(path, low_memory=False)
+        workout["date"] = pd.to_datetime(workout["startDate"]).dt.date
+        workout = workout.groupby("date")[["duration","totalDistance","totalDistanceUnit","totalEnergyBurned","totalEnergyBurnedUnit"]].sum().reset_index()
+        workout.columns = ["workout_" + col if col != "date" else col for col in workout.columns]
+        
+        return workout
     
     def create_xml_data(self, path: str, xml_files_names: List[str] = ["BasalEnergyBurned", "BodyMass", "FlightsClimbed", "StepCount", "BodyMassIndex", "DistanceWalkingRunning"]) -> pd.DataFrame:
         """Featurize XML data from given path."""
@@ -94,12 +125,26 @@ class POG4_Dataset():
 
         # Parse each xml file output and merge with the train data
         for xml_file in xml_files_names:
-            xml = self._create_xml_features(xml_file)
+            
+            xml = self._workout_features(xml_file) if "Workout" in xml_file else self._create_xml_features(xml_file) 
             xml_data = pd.merge(xml_data, xml, on="date", how="outer")
         
         self.xml_data = xml_data
         
         return xml_data
+
+    def create_activity_data(self, path):
+        logging.info("Creating activity data")
+        
+        ad = pd.read_csv(path)
+        
+        logging.debug(f"Featurizing {path}")
+        ad = pd.read_csv(path, low_memory=False)
+        ad["date"] = pd.to_datetime(ad["dateComponents"]).dt.date
+        
+        ad = ad.groupby("date")[["activeEnergyBurned","appleExerciseTime","appleStandHours"]].sum().reset_index()
+        
+        return ad
 
     def _feature_engineering(self, df: pd.DataFrame, lookback: int = None) -> pd.DataFrame:
         """Feature engineering for time series data (Requires XML data)"""
@@ -136,12 +181,34 @@ class POG4_Dataset():
         df["calorie_per_step"] = df["BasalEnergyBurned"] / df["StepCount"] # To account for intensity of exercise
         df["calorie_per_distance"] = df["BasalEnergyBurned"] / df["DistanceWalkingRunning"] # Gym days vs. Outdoor days
         
+        logging.debug("Creating time averages...")
+        for pattern in ['startDate_max_hr', 'startDate_min_hr', 'endDate_max_hr', 'endDate_min_hr']:
+            filtered_columns = [col for col in df.columns if pattern in col]
+            df_no_zeros = df[filtered_columns].replace(0, np.nan)
+            df[f'avg_{pattern}'] = df_no_zeros.mean(axis=1)
+            df[f'max_{pattern}'] = df_no_zeros.max(axis=1)
+            df[f'min_{pattern}'] = df_no_zeros.min(axis=1)
+            df = df.drop(columns = filtered_columns, errors = "ignore")
+            
+        df["avg_startDate_max_sin"] = np.sin(df['avg_startDate_max_hr'] * (2 * np.pi / 24))
+        df["avg_startDate_max_cos"] = np.cos(df['avg_startDate_max_hr'] * (2 * np.pi / 24))
+        df["avg_startDate_min_sin"] = np.sin(df['avg_startDate_min_hr'] * (2 * np.pi / 24))
+        df["avg_startDate_min_cos"] = np.cos(df['avg_startDate_min_hr'] * (2 * np.pi / 24))
+        df["avg_endDate_max_sin"] = np.sin(df['avg_endDate_max_hr'] * (2 * np.pi / 24))
+        df["avg_endDate_max_cos"] = np.cos(df['avg_endDate_max_hr'] * (2 * np.pi / 24))
+        df["avg_endDate_min_sin"] = np.sin(df['avg_endDate_min_hr'] * (2 * np.pi / 24))
+        df["avg_endDate_min_cos"] = np.cos(df['avg_endDate_min_hr'] * (2 * np.pi / 24))
+
         return df
 
     def create_train(self, path: str, freq_threshold: float = 0.9) -> pd.DataFrame:
         """Create train dataset with provided path and frequency threshold."""
         df = pd.read_csv(path)
         df["date"] = pd.to_datetime(df["date"]).dt.date
+        
+        # Filter date on >= self.start_date
+        df = df[df["date"] >= pd.to_datetime(self.start_date)].reset_index(drop=True)
+        
         df = df.sort_values(by="date")
         df = self._fix_doubling(df, "sleep_hours")
         
@@ -156,17 +223,21 @@ class POG4_Dataset():
         logging.info(f"Missing days: {df.sleep_hours.isna().sum()}")
         
         df = df.merge(self.xml_data, on="date", how="left") #Add XML data
+        df = df.merge(self.activity_data, on="date", how="left") #Add Activity data
         df = self._feature_engineering(df) # Feature engineering
         
-        # Drop columns that freq_threshold% is only one value
-        to_drop = [c for c in df.columns if df[c].value_counts(normalize=True).iloc[0] > freq_threshold]
-        df = df.drop(columns=to_drop)
-        logging.info(f"Dropped non-unique columns: {to_drop}")
-        
-        # Drop columns that are mostly missing/nulls
-        to_drop = [c for c in df.columns if df[c].isna().sum() > len(df) * freq_threshold]
-        df = df.drop(columns=to_drop)
+        # This is useless
+        df = df.drop(columns = ["AppleStandHour"], errors = "ignore")
+
+        # Drop columns that are mostly missing/nulls 75%
+        to_drop = [c for c in df.columns if df[c].isna().sum() > len(df) * 0.75]
+        df = df.drop(columns=to_drop, errors = "ignore")
         logging.info(f"Dropped null columns: {to_drop}")
+        
+        # Drop columns that freq_threshold% is only one value
+        to_drop = [c for c in df.columns if df[c].value_counts(normalize=True, dropna=False).iloc[0] > freq_threshold]
+        df = df.drop(columns=to_drop, errors = "ignore")
+        logging.info(f"Dropped non-unique columns: {to_drop}")
         
         self.columns = df.columns
         self.train = df.reset_index(drop=True)
@@ -174,6 +245,28 @@ class POG4_Dataset():
         
         return df
 
+    def create_lags(self, lags = 7):
+        X = self.X
+
+        for lag in range(1, lags + 1):
+            X[f"sleep_hours_lag_{lag}"] = self.y.shift(lag)
+            X[f"sleep_hours_lag_{lag}"] = X[f"sleep_hours_lag_{lag}"].fillna(X[f"sleep_hours_lag_{lag}"].mean())
+    
+        self.X = X
+        self.features = X.columns
+        
+    def train_test_split(self, train_size: float = 0.8):
+        """Split data into train and test set"""
+        logging.info("Splitting data into train and test set")
+        X = self.X
+        y = self.y
+        
+        train_size = int(len(X) * train_size)
+        X_train, y_train = X[:train_size].reset_index(drop=True), y[:train_size].reset_index(drop=True),
+        X_test, y_test = X[train_size:].reset_index(drop=True), y[train_size:].reset_index(drop=True),
+        
+        self.X_train, self.X_test, self.y_train, self.y_test = X_train, X_test, y_train, y_test
+    
     @staticmethod
     def _create_preprocessor(impute_strategy: str = "median"):
         """Create preprocessor for pipeline"""
@@ -186,25 +279,6 @@ class POG4_Dataset():
         ])
         return preprocessor
     
-    def to_parquet(self, train_path: str = "./train_data.parquet") -> None:
-        """Save data to parquet files"""
-        logging.info("Saving to Parquet file...")
-        self.train.to_parquet(train_path)
-
-    def train_test_split(self, train_size: float = 0.8):
-        """Split data into train and test set"""
-        logging.info("Splitting data into train and test set")
-        X = self.X
-        y = self.y
-        
-        train_size = int(len(X) * train_size)
-        X_train, y_train = X[:train_size].reset_index(drop=True), y[:train_size].reset_index(drop=True),
-        X_test, y_test = X[train_size:].reset_index(drop=True), y[train_size:].reset_index(drop=True),
-        
-        self.X_train, self.X_test, self.y_train, self.y_test = X_train, X_test, y_train, y_test
-
-        return X_train, X_test, y_train, y_test
-
     def preprocess_data(self):
         """Preprocess data using the preprocessor"""
         logging.info("Scaling and imputing data")
@@ -218,8 +292,6 @@ class POG4_Dataset():
         
         self.X_train, self.X_test = X_train, X_test
         self.preprocessor = preprocessor
-        
-        return X_train, X_test
     
     def scale_target(self):
         """scales the target variable - sleep hours (useful for NNs)"""
@@ -258,3 +330,51 @@ class POG4_Dataset():
         
         self.last_submission = sub
         return sub
+    
+    @staticmethod
+    def _estimate_sleep_lengths_hmm(df, feature, sleep_start_hour=22, sleep_end_hour=9, resample_freq='3T', window_size=2, n_components=2):
+        df['timestamp'] = pd.to_datetime(df['startDate'])
+        df = df.drop_duplicates(subset=['timestamp']).sort_values(by=['timestamp'])
+
+        # Create a new DataFrame with a fixed interval, merge and interpolate
+        df_resampled = pd.DataFrame(pd.date_range(start=df['timestamp'].min(), end=df['timestamp'].max(), freq=resample_freq), columns=['timestamp'])
+        df_resampled = pd.merge(df_resampled, df, on='timestamp', how='left').fillna(method='ffill')
+
+        # Apply moving average filter to the feature
+        df_resampled['filtered_feature'] = df_resampled[feature].ewm(span=window_size).mean()
+
+        # Prepare the feature data for the HMM
+        feature_data = df_resampled['filtered_feature'].to_numpy().reshape(-1, 1)
+
+        # Define a 2-state Gaussian HMM (sleep and wake states)
+        model = hmm.GaussianHMM(n_components=n_components, covariance_type="diag", n_iter=1000, init_params='stmcw')
+
+        # Fit the HMM to the feature data
+        model.fit(feature_data)
+
+        # Get the most likely sleep/wake state sequence
+        state_sequence = model.predict(feature_data)
+
+        # Add the sleep/wake state sequence to the DataFrame
+        df_resampled['sleep'] = state_sequence
+
+        # Restrict sleep detection to the specified sleep window
+        df_resampled['sleep'] = np.where((df_resampled['sleep'] == 1) & 
+                                        ((df_resampled['timestamp'].dt.hour >= sleep_start_hour) | 
+                                        (df_resampled['timestamp'].dt.hour < sleep_end_hour)), 1, 0)
+
+        # Calculate estimated sleep hours for each day
+        df_sleep = df_resampled.groupby(df_resampled['timestamp'].dt.floor('D')).agg({'sleep': 'sum'})
+        df_sleep['sleep_hours'] = df_sleep['sleep'] * pd.to_timedelta(resample_freq).seconds / 3600
+
+        df_sleep = df_sleep.reset_index()
+        df_sleep['date'] = pd.to_datetime(df_sleep['timestamp']).dt.date
+        df_sleep = df_sleep.drop(columns=['timestamp', 'sleep'])
+        df_sleep.loc[df_sleep.sleep_hours == 0, 'sleep_hours'] = np.nan
+
+        return df_sleep
+    
+    def to_parquet(self, train_path: str = "./train_data.parquet") -> None:
+        """Save data to parquet files"""
+        logging.info("Saving to Parquet file...")
+        self.train.to_parquet(train_path)
