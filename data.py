@@ -358,7 +358,7 @@ class POG4_Dataset():
         feature_data = df_resampled['filtered_feature'].to_numpy().reshape(-1, 1)
 
         # Define a 2-state Gaussian HMM (sleep and wake states)
-        model = hmm.GaussianHMM(n_components=n_components, covariance_type="diag", n_iter=1000, init_params='stmcw')
+        model = hmm.GaussianHMM(n_components=n_components, covariance_type="diag", n_iter=1000, init_params='stmc')
 
         # Fit the HMM to the feature data
         model.fit(feature_data)

@@ -1,0 +1,42 @@
+name: pog4_sleep_lstm_sweep
+method: bayes
+metric:
+  name: val_rmse
+  goal: minimize
+
+parameters:
+  lookback:
+    values : [3, 6, 12, 24, 48]
+  batch_size:
+    min: 16
+    max: 128
+    distribution: int_uniform
+  hidden_size:
+    min: 32
+    max: 256
+    distribution: int_uniform
+  num_layers:
+    min: 1
+    max: 4
+    distribution: int_uniform
+  learning_rate:
+    min: 0.0001
+    max: 0.01
+    distribution: log_uniform_values
+  dropout_rate:
+    min: 0.1
+    max: 0.6
+    distribution: uniform
+  activation_function:
+    values: ['relu', 'sigmoid', 'linear']
+  criterion:
+    values: ['huber', 'mse', 'mae']
+  optimizer:
+    values: ['adam', 'rmsprop', 'sgd', 'adamw']
+  num_epochs:
+    values: [200]
+
+early_terminate:
+  type: hyperband
+  max_iter: 100
+  s: 2

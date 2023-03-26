@@ -78,6 +78,8 @@ class LSTMTrainer:
             self.criterion = nn.L1Loss()
         elif criterion == 'huber':
             self.criterion = nn.SmoothL1Loss()
+        elif criterion == 'cross_entropy': 
+            self.criterion = nn.BCEWithLogitsLoss() # for classification
             
         if optimizer == 'adam':
             self.optimizer = Adam(model.parameters(), lr=self.learning_rate)

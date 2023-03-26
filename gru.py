@@ -106,7 +106,6 @@ class GRUTrainer:
         return running_loss / len(dataloader)
     
     def _calculate_rmse(self, outputs, targets):
-        
         if self.target_scaler is not None:
             outputs_inv = self.target_scaler.inverse_transform(outputs.cpu().numpy())
             targets_inv = self.target_scaler.inverse_transform(targets.cpu().numpy())
@@ -114,8 +113,14 @@ class GRUTrainer:
             outputs = torch.tensor(outputs_inv, device=self.device, dtype=torch.float)
             targets = torch.tensor(targets_inv, device=self.device, dtype=torch.float)
 
+        #print("outputs: ",outputs)
+        #print("targets: ",targets)
+                
         mse_loss = F.mse_loss(outputs, targets)
+        #print("mse_loss: ",mse_loss)
+        
         rmse_loss = torch.sqrt(mse_loss)
+        #print("rmse_loss: ",rmse_loss)
         return rmse_loss.item()
 
     
@@ -197,13 +202,14 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # CUDA support
     hidden_size = 64
     num_layers = 2
-    learning_rate = 0.001
+   
     dropout_rate = 0.5
     activation_function = 'relu'
     
     model = GRUModel(device, input_size, hidden_size, num_layers, output_size, dropout_rate, activation_function).to(device)
     
     # Training Config
+    learning_rate = 0.001
     criterion = 'huber'
     optimizer = 'adam'
     num_epochs = 50

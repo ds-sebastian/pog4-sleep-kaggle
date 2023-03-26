@@ -1,0 +1,12 @@
+{
+    "lookback": 6,
+    "criterion": "mae",
+    "optimizer": "rmsprop",
+    "batch_size": 45,
+    "num_epochs": 200,
+    "num_layers": 1,
+    "hidden_size": 66,
+    "dropout_rate": 0.35037856188007377,
+    "learning_rate": 0.00017629887403946195,
+    "activation_function": "relu"
+}

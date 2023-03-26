@@ -41,7 +41,7 @@ def main():
     # Use cross validation to evaluate all parameters
     for params in all_params:
         m = Prophet(**params).fit(df_p)  # Fit model with given params
-        df_cv = cross_validation(m, initial="1825 days", period="91 days", horizon="365 days", parallel="processes")
+        df_cv = cross_validation(m, initial="1095 days", period="91 days", horizon="365 days", parallel="processes")
         df_perf = performance_metrics(df_cv, rolling_window=1)
         rmses.append(df_perf["rmse"].values[0])
 
@@ -49,7 +49,10 @@ def main():
     # Find the best parameters
     tuning_results = pd.DataFrame(all_params)
     tuning_results["rmse"] = rmses
-    best_params = all_params[np.argmin(rmses)]
+    
+    best_rmse = np.argmin(rmses)
+    print("Best RMSE: ", rmses[best_rmse])
+    best_params = all_params[best_rmse]
 
 
     with open("prophet_best_params.json", "w") as f:
