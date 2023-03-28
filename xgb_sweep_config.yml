@@ -19,3 +19,5 @@ parameters:
   colsample_bytree:
     min: 0.25
     max: 1.0
+  scaler:
+    values: [none, standard, minmax, robust]

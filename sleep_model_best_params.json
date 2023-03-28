@@ -1,0 +1,10 @@
+{
+    "gamma": 0.7483232914389041,
+    "scaler": "none",
+    "max_depth": 6,
+    "subsample": 0.6298206100536499,
+    "n_estimators": 830,
+    "learning_rate": 0.3017020376693815,
+    "colsample_bytree": 0.7979468286602337,
+    "min_child_weight": 5
+}

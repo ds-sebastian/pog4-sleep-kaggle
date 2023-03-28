@@ -29,8 +29,8 @@ def sweep():
     train = TimeSeriesDataset(df_train, lookback, output_size)
     test = TimeSeriesDataset(df_test, lookback, output_size)
 
-    train = DataLoader(train, batch_size=batch_size, shuffle=True)
-    test = DataLoader(test, batch_size=batch_size, shuffle=True)
+    train = DataLoader(train, batch_size=batch_size, shuffle=False)
+    test = DataLoader(test, batch_size=batch_size, shuffle=False)
     
     # Model Config
     hidden_size = config.hidden_size
@@ -38,7 +38,7 @@ def sweep():
     learning_rate = config.learning_rate
     dropout_rate = config.dropout_rate
     activation_function = config.activation_function
-
+    
     model = GRUModel(device, input_size, hidden_size, num_layers, output_size, dropout_rate, activation_function).to(device)
     
     # Training Config

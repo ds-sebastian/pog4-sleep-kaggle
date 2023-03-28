@@ -27,7 +27,7 @@ class TimeSeriesDataset(Dataset):
         return len(self.data) - self.lookback - self.output_size + 1
 
     def __getitem__(self, idx):
-        x = self.data[idx:idx + self.lookback]
+        x = self.data[idx:idx + self.lookback].t()
         y = self.data[idx + self.lookback:idx + self.lookback + self.output_size, -1] # ytrain in last column
         return x, y
 
@@ -38,17 +38,30 @@ class LSTMModel(nn.Module):
         self.device = device
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.LSTM = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate if num_layers > 1 else 0)
-        self.batch_norm = nn.BatchNorm1d(hidden_size)
+        
+        # Convolutional layers for feature extraction
+        self.cnn = nn.Sequential(
+            nn.Conv1d(input_size, input_size*2, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            
+            nn.Conv1d(input_size*2, input_size*4, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2)
+        )
+        self.LSTM = nn.LSTM(input_size*4, hidden_size, num_layers, batch_first=True, dropout=dropout_rate if num_layers > 1 else 0, bidirectional=True)
+        self.norm = nn.LayerNorm(hidden_size * 2)
         self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.fc = nn.Linear(hidden_size * 2, output_size)
         self.activation_function = activation_function
         
     def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device) # adding LSTM cell state initialization
-        out, _ = self.LSTM(x, (h0, c0))
-        out = self.batch_norm(out[:, -1, :])
+        # Apply CNN feature extraction
+        out = self.cnn(x)
+        out = out.transpose(1, 2)  # Swap the channel and time dimensions
+        out, _ = self.LSTM(out)
+        out = out[:, -1, :]        # Take the output from the last time step
+        out = self.norm(out)
         out = self.dropout(out)
         out = self.fc(out)
 

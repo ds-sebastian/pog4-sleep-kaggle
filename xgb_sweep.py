@@ -10,6 +10,8 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+from sklearn.pipeline import Pipeline
 
 import wandb
 
@@ -40,10 +42,32 @@ def sweep():
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
 
+    # Scaler
+    if config.scaler == "minmax":
+        scaler = MinMaxScaler()
+    elif config.scaler == "standard":
+        scaler = StandardScaler()
+    elif config.scaler == "robust":
+        scaler = RobustScaler()
+    elif config.scaler == "none":
+        scaler = None
+
+    pipeline = Pipeline(steps=[("scaler", scaler), ("model", model)])
+
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(model, X, y, cv=tscv, scoring="neg_mean_squared_error")
+    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error")
     rmse_scores = np.sqrt(-cv_scores)
     avg_rmse = np.mean(rmse_scores)
+    
+    # Fit the model to the entire dataset
+    model.fit(X, y)
+
+    # Get feature importances
+    feature_importances = model.feature_importances_
+ 
+    # Log feature importances to wandb as a dictionary
+    importances_dict = {f'feature/{feature_name}': importance for feature_name, importance in zip(X.columns, feature_importances)}
+    wandb.log(importances_dict)
 
     # Log the metrics to W&B
     wandb.log({"RMSE": avg_rmse, "CV_scores": cv_scores.tolist()})
@@ -56,7 +80,7 @@ if __name__ == "__main__":
     
     # Load the dataset
     data = POG4_Dataset()
-    data.create_lags()
+    #data.create_lags()
     data.train_test_split()
     data.preprocess_data()
 

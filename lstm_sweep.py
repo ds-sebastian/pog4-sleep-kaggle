@@ -29,8 +29,8 @@ def sweep():
     train = TimeSeriesDataset(df_train, lookback, output_size)
     test = TimeSeriesDataset(df_test, lookback, output_size)
 
-    train = DataLoader(train, batch_size=batch_size, shuffle=True)
-    test = DataLoader(test, batch_size=batch_size, shuffle=True)
+    train = DataLoader(train, batch_size=batch_size, shuffle=False)
+    test = DataLoader(test, batch_size=batch_size, shuffle=False)
     
     # Model Config
     hidden_size = config.hidden_size
@@ -40,6 +40,9 @@ def sweep():
     activation_function = config.activation_function
 
     model = LSTMModel(device, input_size, hidden_size, num_layers, output_size, dropout_rate, activation_function).to(device)
+    
+    if torch.__version__ >= "2.0":
+        model = torch.compile(model) 
     
     # Training Config
     criterion = config.criterion

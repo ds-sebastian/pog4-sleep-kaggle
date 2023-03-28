@@ -239,6 +239,54 @@ class POG4_Dataset():
         df = df.drop(columns=to_drop, errors = "ignore")
         logging.info(f"Dropped non-unique columns: {to_drop}")
         
+        # Keep important features:
+        to_keep = ["date", "sleep_hours",
+        "AppleStandTime_hrs_btween",
+        "BodyMassIndex_hrs_btween",
+        "OxygenSaturation_hrs_btween",
+        "AppleExerciseTime_hrs_btween",
+        "is_weekend",
+        "AppleStandHour_hrs_btween",
+        "appleStandHours",
+        "VO2Max_hrs_btween",
+        "day_of_week",
+        "max_startDate_min_hr",
+        "AppleStandTime",
+        "FlightsClimbed_hrs_btween",
+        "month_sin",
+        "VO2Max",
+        "dow_median",
+        "appleExerciseTime",
+        "max_startDate_max_hr",
+        "avg_startDate_min_sin",
+        "day_of_year",
+        "calorie_per_step",
+        "min_startDate_min_hr",
+        "avg_endDate_min_hr",
+        "avg_startDate_min_hr",
+        "DistanceWalkingRunning_hrs_btween",
+        "AppleExerciseTime",
+        "HeartRateVariabilitySDNN_hrs_btween",
+        "min_endDate_min_hr",
+        "calorie_per_distance",
+        "avg_endDate_min_sin",
+        "HeadphoneAudioExposure",
+        "distance_per_step",
+        "doy_cos",
+        "avg_endDate_max_sin",
+        "avg_startDate_max_sin",
+        "DistanceWalkingRunning",
+        "month_cos",
+        "StepCount",
+        "StepCount_hrs_btween",
+        "HeadphoneAudioExposure_hrs_btween",
+        "BasalEnergyBurned_hrs_btween",
+        "avg_endDate_max_cos",
+        "avg_startDate_min_cos",
+        "month"]
+        
+        df = df[to_keep]
+        
         self.columns = df.columns
         self.train = df.reset_index(drop=True)
         self.target = self.train.pop("sleep_hours")
