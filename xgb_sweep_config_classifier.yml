@@ -1,8 +1,8 @@
-name: pog4_xgb_sweep
+name: pog4_xgb_classifier_sweep
 method: bayes
 metric:
-  name: RMSE
-  goal: minimize
+  name: AUC
+  goal: maximize
 parameters:
   learning_rate:
     min: 0.0001
@@ -14,21 +14,12 @@ parameters:
     min: 100
     max: 2000
   subsample:
-    min: 0.1
+    min: 0.25
     max: 1.0
   colsample_bytree:
     min: 0.25
     max: 1.0
-  lmbda:
-    min: 0.0
-    max: 10.0
-  alpha:
-    min: 0.0
-    max: 10.0
-  eta:
-    min: 0.01
-    max: 0.3
   scaler:
-    values: [minmax, robust]
+    values: [none, standard, minmax, robust]
   imputer:
-    values: [mean, median, most_frequent]
+    values: [none, mean, median, most_frequent]

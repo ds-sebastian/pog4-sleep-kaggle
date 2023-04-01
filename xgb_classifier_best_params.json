@@ -1,0 +1,9 @@
+{
+    "scaler": "robust",
+    "imputer": "none",
+    "max_depth": 12,
+    "subsample": 0.7200287084616043,
+    "n_estimators": 543,
+    "learning_rate": 0.04465311271044405,
+    "colsample_bytree": 0.3073780472712543
+}

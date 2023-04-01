@@ -35,7 +35,6 @@ parameters:
     values: ['adam', 'rmsprop', 'sgd', 'adamw']
   num_epochs:
     values: [300]
-
 early_terminate:
   type: hyperband
   max_iter: 100

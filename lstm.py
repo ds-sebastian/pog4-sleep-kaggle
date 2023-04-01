@@ -176,12 +176,15 @@ class LSTMTrainer:
                 input_tensor[-1, -1] = predictions[i - 1] if i > 0 else 0
 
                 # Make a prediction using the model
-                output = self.model(input_tensor.unsqueeze(0))
+                output = self.model(input_tensor[:-1].unsqueeze(0))
 
                 # Store the prediction in the predictions tensor
                 predictions[i] = output.squeeze()
 
         return predictions.cpu().numpy()
+
+
+
 
 if __name__ == "__main__":
     # TEST ON REAL DATA

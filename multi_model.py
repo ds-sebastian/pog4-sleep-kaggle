@@ -18,24 +18,21 @@ def set_seed(seed):
     
 def process_sleep_data(df, freq='1min', start_date='2020-09-26 00:00:00', end_date='2023-03-17 00:00:00'):
     #exclude where valud is HKCategoryValueSleepAnalysisInBed
-    df = df.drop(df[df['value'] != 'HKCategoryValueSleepAnalysisInBed'].index)
+    df = df.drop(df[df['value'] == 'HKCategoryValueSleepAnalysisInBed'].index)
     
     # Parse dates and times
     df['startDate'] = pd.to_datetime(df['startDate'])
     df['endDate'] = pd.to_datetime(df['endDate'])
-    df['adjusted_startDate'] = df['startDate'] - pd.to_timedelta('12:00:00') # Subtract 12 hours from startDate
 
-    # Group by date and find min startDate and max endDate
-    df = df.groupby(df['adjusted_startDate'].dt.date).agg(startDate=('startDate', 'min'),endDate=('endDate', 'max')).reset_index(drop=True)
-    df["value"] = 1 
-    
-    date_range = pd.date_range(start_date, end_date, freq=freq, tz = pytz.FixedOffset(-240))
-    expanded_df = pd.DataFrame(date_range, columns=['date'])
-    expanded_df['value'] = 0 # Start with 0 and replace with 1s if in interval
+    # Create the date range
+    expanded_df = pd.DataFrame()
+    expanded_df["date"] = pd.date_range(start_date, end_date, freq=freq, tz=pytz.FixedOffset(-240))
 
+    # 1 if between startDate and endDate, 0 otherwise
+    expanded_df["value"] = 0
     for _, row in df.iterrows():
         mask = (expanded_df['date'] >= row['startDate']) & (expanded_df['date'] <= row['endDate'])
-        expanded_df.loc[mask, 'value'] = row['value']
+        expanded_df.loc[mask, 'value'] = 1
         
     expanded_df = expanded_df.rename(columns={'value': 'sleep'})
 

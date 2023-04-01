@@ -31,21 +31,14 @@ def sweep():
     xgb_params = {
         "learning_rate": config.learning_rate,
         "max_depth": config.max_depth,
-        'lambda': config.lmbda,
-        'alpha': config.alpha,
         "n_estimators": config.n_estimators,
         "subsample": config.subsample,
         "colsample_bytree": config.colsample_bytree,
-        'eta': config.eta,
-        "objective": "reg:squarederror",
+        "objective": "binary:logistic",
         "seed": 42
     }
 
-    model = xgb.XGBRegressor(**xgb_params, 
-                             gpu_id=0, 
-                             tree_method="gpu_hist",
-                             random_state=seed
-                             )
+    model = xgb.XGBClassifier(**xgb_params, gpu_id=0, tree_method="gpu_hist", random_state=seed)
     
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -73,10 +66,9 @@ def sweep():
     pipeline = Pipeline(steps=[("imputer", imputer), ("scaler", scaler), ("model", model)])
 
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error")
-    rmse_scores = np.sqrt(-cv_scores)
-    avg_rmse = np.mean(rmse_scores)
-    
+    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="roc_auc")
+    avg_auc_score = cv_scores.mean()
+
     # Fit the model to the entire dataset
     model.fit(X, y)
 
@@ -88,7 +80,7 @@ def sweep():
     wandb.log(importances_dict)
 
     # Log the metrics to W&B
-    wandb.log({"RMSE": avg_rmse, "CV_scores": cv_scores.tolist()})
+    wandb.log({"AUC": avg_auc_score, "CV_scores": cv_scores.tolist()})
 
     run.finish()
     
@@ -99,28 +91,30 @@ if __name__ == "__main__":
     # Load the dataset
     data = POG4_Dataset()
     #data.create_lags()
-    data.train_test_split()
+    # data.train_test_split()
     #data.preprocess_data()
 
-    # Using cross-validation so concat the train and test sets
-    X = pd.concat([data.X_train, data.X_test], axis = 0)
-    y = pd.concat([data.y_train, data.y_test], axis = 0)
+    X = data.X
+    y = data.y
+    
+    # Turn y into classification (greater or less than median)
+    y = y > y.median()
     
     # Load the sweep configuration from the YAML file
-    with open("xgb_sweep_config.yml") as f:
+    with open("xgb_sweep_config_classifier.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_xgb")
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_xgb_classifier")
     wandb.agent(sweep_id, function=sweep)
     
     api = wandb.Api()
-    runs = api.runs("sgobat/pog4_xgb")
+    runs = api.runs("sgobat/pog4_xgb_classifier")
 
     best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config
-    with open("xgb_best_params.json", "w") as f:
+    with open("xgb_classifier_best_params.json", "w") as f:
         json.dump(best_params, f, indent=4)
 
     print(f"Best run: {best_run.id}")

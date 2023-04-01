@@ -41,7 +41,7 @@ def main():
     # Use cross validation to evaluate all parameters
     for params in all_params:
         m = Prophet(**params).fit(df_p)  # Fit model with given params
-        df_cv = cross_validation(m, initial="1095 days", period="91 days", horizon="365 days", parallel="processes")
+        df_cv = cross_validation(m, initial="270 days", period="91 days", horizon="180 days", parallel="processes")
         df_perf = performance_metrics(df_cv, rolling_window=1)
         rmses.append(df_perf["rmse"].values[0])
 

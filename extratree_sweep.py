@@ -10,6 +10,9 @@ import pandas as pd
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 
 import wandb
 
@@ -30,7 +33,6 @@ def sweep():
         "max_depth": config.max_depth,
         "min_samples_split": config.min_samples_split,
         "min_samples_leaf": config.min_samples_leaf,
-        "max_features": config.max_features,
         "bootstrap": config.bootstrap,
     }
 
@@ -39,11 +41,29 @@ def sweep():
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
 
+    # Scaler
+    if config.scaler == "minmax":
+        scaler = MinMaxScaler()
+    elif config.scaler == "standard":
+        scaler = StandardScaler()
+    elif config.scaler == "robust":
+        scaler = RobustScaler()
+    
+    # Imputer 
+    if config.imputer == "mean":
+        imputer = SimpleImputer(strategy="mean")
+    elif config.imputer == "median":
+        imputer = SimpleImputer(strategy="median")
+    elif config.imputer == "most_frequent":
+        imputer = SimpleImputer(strategy="most_frequent")
+    
+    pipeline = Pipeline(steps=[("imputer", imputer), ("scaler", scaler), ("model", model)])
+
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(model, X, y, cv=tscv, scoring="neg_mean_squared_error")
+    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error")
     rmse_scores = np.sqrt(-cv_scores)
     avg_rmse = np.mean(rmse_scores)
-
+    
     # Log the metrics to W&B
     wandb.log({"RMSE": avg_rmse, "CV_scores": cv_scores.tolist()})
 
@@ -55,9 +75,9 @@ if __name__ == "__main__":
     
     # Load the dataset
     data = POG4_Dataset()
-    data.create_lags()
+    #data.create_lags()
     data.train_test_split()
-    data.preprocess_data()
+    #data.preprocess_data()
 
     # Using cross-validation so concat the train and test sets
     X = pd.concat([data.X_train, data.X_test], axis = 0)

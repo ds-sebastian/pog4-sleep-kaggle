@@ -1,7 +1,12 @@
 {
+    "eta": 0.2096088876181359,
+    "alpha": 4.04070830162846,
+    "lmbda": 9.270745540100616,
+    "scaler": "robust",
+    "imputer": "median",
     "max_depth": 2,
-    "subsample": 0.9216745665393588,
-    "n_estimators": 815,
-    "learning_rate": 0.00814656376107916,
-    "colsample_bytree": 0.3863066096959391
+    "subsample": 0.27760800448566814,
+    "n_estimators": 1887,
+    "learning_rate": 0.0346492845111299,
+    "colsample_bytree": 0.30987836753571074
 }

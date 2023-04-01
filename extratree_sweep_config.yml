@@ -16,7 +16,9 @@ parameters:
   min_samples_leaf:
     min: 1
     max: 10
-  max_features:
-    values: ["auto"]
+  scaler:
+    values: [minmax, robust]
+  imputer:
+    values: [mean, median, most_frequent]
   bootstrap:
     values: [True, False]
