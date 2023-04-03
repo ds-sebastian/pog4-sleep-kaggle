@@ -1,7 +1,7 @@
 name: pog4_xgb_classifier_sweep
 method: bayes
 metric:
-  name: AUC
+  name: Accuracy
   goal: maximize
 parameters:
   learning_rate:
@@ -14,12 +14,21 @@ parameters:
     min: 100
     max: 2000
   subsample:
-    min: 0.25
+    min: 0.1
     max: 1.0
   colsample_bytree:
     min: 0.25
     max: 1.0
+  lmbda:
+    min: 0.0
+    max: 10.0
+  alpha:
+    min: 0.0
+    max: 10.0
+  eta:
+    min: 0.01
+    max: 0.3
   scaler:
-    values: [none, standard, minmax, robust]
+    values: [minmax, robust]
   imputer:
-    values: [none, mean, median, most_frequent]
+    values: [mean, median, most_frequent]

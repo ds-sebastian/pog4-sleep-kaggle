@@ -24,34 +24,33 @@ class TimeSeriesDataset(Dataset):
         self.output_size = output_size
 
     def __len__(self):
-        return len(self.data) - self.lookback - self.output_size + 1
+        length = len(self.data) - self.lookback - self.output_size + 1
+        return max(length, 0)  # Ensure length is not negative
 
     def __getitem__(self, idx):
-        x = self.data[idx:idx + self.lookback]
+        x = self.data[idx:idx + self.lookback].t()
         y = self.data[idx + self.lookback:idx + self.lookback + self.output_size, -1] # ytrain in last column
         return x, y
 
-# GRU Model
-class GRUModel(nn.Module):
-    def __init__(self, device, input_size, hidden_size, num_layers, output_size, dropout_rate=0.5, activation_function='relu'):
-        super(GRUModel, self).__init__()
+
+# LSTM Model
+class TransformerModel(nn.Module):
+    def __init__(self, device, input_size, num_layers, output_size, d_model=512, nhead=4, dropout_rate=0.5, activation_function='linear'):
+        super(TransformerModel, self).__init__()
         self.device = device
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate if num_layers > 1 else 0, bidirectional=True)
-        self.layer_norm = nn.LayerNorm(hidden_size*2)
-        self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(2*hidden_size, output_size)
+        
+        self.embedding = nn.Linear(input_size, d_model)
+        self.transformer = nn.Transformer(d_model, nhead, num_layers, batch_first=True, dropout=dropout_rate)
+                                          
+        self.fc = nn.Linear(d_model, output_size)
         self.activation_function = activation_function
         
-        
     def forward(self, x):
-        #h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
-        out, _ = self.gru(x)
-        out = self.layer_norm(out[:, -1, :])
-        out = self.dropout(out)
-        out = self.fc(out)
-        
+        # Apply CNN feature extraction
+        out = self.embedding(x)
+        out = self.transformer(out)
+        out = self.fc(out[-1])
+
         if self.activation_function == 'relu':
             out = torch.relu(out)
         elif self.activation_function == 'tanh':
@@ -63,8 +62,8 @@ class GRUModel(nn.Module):
     
         return out
 
-# GRU trainer
-class GRUTrainer:
+# trainer
+class Trainer:
     def __init__(self, model, device, learning_rate, criterion = 'huber', optimizer = 'adam', target_scaler = None):
         self.model = model
         self.optimizer = optimizer
@@ -78,6 +77,8 @@ class GRUTrainer:
             self.criterion = nn.L1Loss()
         elif criterion == 'huber':
             self.criterion = nn.SmoothL1Loss()
+        elif criterion == 'cross_entropy': 
+            self.criterion = nn.BCEWithLogitsLoss() # for classification
             
         if optimizer == 'adam':
             self.optimizer = Adam(model.parameters(), lr=self.learning_rate)
@@ -107,6 +108,7 @@ class GRUTrainer:
         return running_loss / len(dataloader)
     
     def _calculate_rmse(self, outputs, targets):
+        
         if self.target_scaler is not None:
             outputs_inv = self.target_scaler.inverse_transform(outputs.cpu().numpy())
             targets_inv = self.target_scaler.inverse_transform(targets.cpu().numpy())
@@ -114,14 +116,8 @@ class GRUTrainer:
             outputs = torch.tensor(outputs_inv, device=self.device, dtype=torch.float)
             targets = torch.tensor(targets_inv, device=self.device, dtype=torch.float)
 
-        #print("outputs: ",outputs)
-        #print("targets: ",targets)
-                
         mse_loss = F.mse_loss(outputs, targets)
-        #print("mse_loss: ",mse_loss)
-        
         rmse_loss = torch.sqrt(mse_loss)
-        #print("rmse_loss: ",rmse_loss)
         return rmse_loss.item()
 
     
@@ -166,12 +162,15 @@ class GRUTrainer:
                 input_tensor[-1, -1] = predictions[i - 1] if i > 0 else 0
 
                 # Make a prediction using the model
-                output = self.model(input_tensor.unsqueeze(0))
+                output = self.model(input_tensor[:-1].unsqueeze(0))
 
                 # Store the prediction in the predictions tensor
                 predictions[i] = output.squeeze()
 
         return predictions.cpu().numpy()
+
+
+
 
 if __name__ == "__main__":
     # TEST ON REAL DATA
@@ -181,12 +180,13 @@ if __name__ == "__main__":
     data = POG4_Dataset()
     data.train_test_split()
     data.preprocess_data()
-
+    
     # Feature Config
-    lookback = 7 # Lookback window size
+    lookback = 14 # Lookback window size
     input_size = data.train.shape[1]+1 # Number of features (plus 1 for the target)
     output_size = 1 # Number of targets
-    batch_size = 216
+    batch_size = 16
+    
     
     train = pd.concat([data.X_train, data.y_train], axis=1).to_numpy()
     test = pd.concat([data.X_test, data.y_test], axis=1).to_numpy()
@@ -201,21 +201,20 @@ if __name__ == "__main__":
     
     # Model Config
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # CUDA support
-    hidden_size = 96
-    num_layers = 3
-   
-    dropout_rate = 0.5
-    activation_function = 'relu'
+    hidden_size = 64
+    num_layers = 2
+    learning_rate = 0.0001
+    dropout_rate = 0.4
+    activation_function = 'linear'
     
-    model = GRUModel(device, input_size, hidden_size, num_layers, output_size, dropout_rate, activation_function).to(device)
+    model = TransformerModel(device, input_size, num_layers, output_size, d_model=512, nhead=4, dropout_rate=0.5, activation_function='linear').to(device)
     
     # Training Config
-    learning_rate = 0.0001
-    criterion = 'mae'
-    optimizer = 'adamw'
-    num_epochs = 20000
+    criterion = 'huber'
+    optimizer = 'adam'
+    num_epochs = 500
     
-    trainer = GRUTrainer(model, device, learning_rate, criterion, optimizer)
+    trainer = Trainer(model, device, learning_rate, criterion, optimizer)
     
     for epoch in range(num_epochs):
         train_loss = trainer.train(train)
@@ -226,7 +225,7 @@ if __name__ == "__main__":
     sub = pd.read_csv( "./data/test.csv")
     sub["date"] = pd.to_datetime(sub["date"]).dt.date
     sub = sub.merge(data.xml_data, on="date", how="left")
-    sub = sub.merge(data.activity_data, on="date", how="left")
+    sub - sub.merge(data.activity_data, on="date", how="left")
     sub = data._feature_engineering(sub)
     sub = sub[data.columns] # Keep only columns that are in the train data
     sub = sub.drop(columns=["date", "sleep_hours"], errors = 'ignore') # Drop date column from df

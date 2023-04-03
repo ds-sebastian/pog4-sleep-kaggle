@@ -9,7 +9,7 @@ import pandas as pd
 
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import cross_val_score, TimeSeriesSplit
+from sklearn.model_selection import cross_validate, TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -66,21 +66,26 @@ def sweep():
     pipeline = Pipeline(steps=[("imputer", imputer), ("scaler", scaler), ("model", model)])
 
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="roc_auc")
-    avg_auc_score = cv_scores.mean()
+    cv_scores = cross_validate(pipeline, X, y, cv=tscv, scoring=["roc_auc", "accuracy", "f1", "precision", "recall"], n_jobs=-1)
+    avg_auc_score = cv_scores["test_roc_auc"].mean()
+    avg_accuracy_score = cv_scores["test_accuracy"].mean()
+    avg_f1_score = cv_scores["test_f1"].mean()
+    avg_precision_score = cv_scores["test_precision"].mean()
+    avg_recall_score = cv_scores["test_recall"].mean()
+    
 
-    # Fit the model to the entire dataset
-    model.fit(X, y)
+    # # Fit the model to the entire dataset
+    # model.fit(X, y)
 
-    # Get feature importances
-    feature_importances = model.feature_importances_
+    # # Get feature importances
+    # feature_importances = model.feature_importances_
  
-    # Log feature importances to wandb as a dictionary
-    importances_dict = {f'feature/{feature_name}': importance for feature_name, importance in zip(X.columns, feature_importances)}
-    wandb.log(importances_dict)
+    # # Log feature importances to wandb as a dictionary
+    # importances_dict = {f'feature/{feature_name}': importance for feature_name, importance in zip(X.columns, feature_importances)}
+    # wandb.log(importances_dict)
 
     # Log the metrics to W&B
-    wandb.log({"AUC": avg_auc_score, "CV_scores": cv_scores.tolist()})
+    wandb.log({"AUC": avg_auc_score, "Accuracy": avg_accuracy_score, "F1": avg_f1_score, "Precision": avg_precision_score, "Recall": avg_recall_score})
 
     run.finish()
     
@@ -100,6 +105,9 @@ if __name__ == "__main__":
     # Turn y into classification (greater or less than median)
     y = y > y.median()
     
+    # Print y value counts
+    print(y.value_counts())
+    
     # Load the sweep configuration from the YAML file
     with open("xgb_sweep_config_classifier.yml") as f:
         sweep_config = yaml.safe_load(f)
@@ -110,7 +118,7 @@ if __name__ == "__main__":
     api = wandb.Api()
     runs = api.runs("sgobat/pog4_xgb_classifier")
 
-    best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
+    best_run = max(runs, key=lambda run: run.summary.get('Accuracy', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config

@@ -4,7 +4,7 @@ from torch.optim import Adam, SGD, RMSprop, AdamW
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 import pytz
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import roc_auc_score
 import pandas as pd
 import numpy as np
@@ -57,8 +57,10 @@ class CNNBlock(nn.Module):
 
         self.block = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm1d(out_channels),
             nn.LeakyReLU(),
             nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm1d(out_channels),
             nn.LeakyReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2)
         )
@@ -73,9 +75,10 @@ class DilatedBlock(nn.Module):
         super(DilatedBlock, self).__init__()
 
         layers = []
-        for i in range(4): # Lowered from 4
+        for i in range(5):
             layers.extend([
                 nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=2**i, dilation=2**i),
+                nn.BatchNorm1d(out_channels),
                 nn.LeakyReLU(),
                 nn.Dropout(0.2)
             ])
@@ -89,19 +92,19 @@ class SleepStatusPredictor(nn.Module):
         super(SleepStatusPredictor, self).__init__()
 
         self.cnn_blocks = nn.Sequential(
-            CNNBlock(input_size, 64), # Lowered from 64, 128
-            CNNBlock(64, 128), # Lowered from 64, 128
-            CNNBlock(128, 128) # Lowered from 64, 128
+            CNNBlock(input_size, 64), 
+            CNNBlock(64, 128),
+            CNNBlock(128, 128)
         )
 
         self.dilated_blocks = nn.Sequential(
-            DilatedBlock(128, 128), # lowered from 128
-            DilatedBlock(128, 128) # lowered from 128
+            DilatedBlock(128, 128),
+            DilatedBlock(128, 128) 
         )
 
-        self.final_conv = nn.Conv1d(128, output_size, kernel_size=1, dilation=1) #lowered from 128
+        self.final_conv = nn.Conv1d(128, output_size, kernel_size=1, dilation=1) 
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)  # Add the global average pooling layer
-        self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.Sigmoid() 
         
     def forward(self, x):
         cnn_out = self.cnn_blocks(x)
@@ -115,7 +118,7 @@ class SleepStatusPredictor(nn.Module):
     
 class HeartRateDataset(Dataset):
     """segment_length/2 fowards and backwards from the label time. The paper used 1-hour for both"""
-    def __init__(self, hr_data, labels, segment_length=24):
+    def __init__(self, hr_data, labels, segment_length=120):
         self.hr_data = hr_data
         self.labels = labels
         self.segment_length = segment_length
@@ -136,8 +139,6 @@ class HeartRateDataset(Dataset):
             segment = np.pad(segment, ((0, 0), (0, self.segment_length - segment.shape[1])), mode='constant')
 
         return torch.tensor(segment, dtype=torch.float32), torch.tensor(label, dtype=torch.float32)
-
-
 
 class Trainer:
     def __init__(self, model, device, learning_rate, criterion, optimizer):
@@ -217,7 +218,7 @@ def main_large(feature_path = "./data/xml_export/HeartRate.csv"):
 
     df = pd.merge(df_sleep, df_hr, on='date', how='outer')
     df = df.fillna(method='ffill').fillna(method='bfill')
-    #df = create_lags(df, 60, "hr")
+
     print(df.head(2))
 
     df = df.set_index("date")
@@ -234,14 +235,14 @@ def main_large(feature_path = "./data/xml_export/HeartRate.csv"):
     sub_dates = sub.index
     #print("features: ", X_train.columns)
 
-    scaler = MinMaxScaler()
+    scaler = StandardScaler()
     X_train_prep = scaler.fit_transform(X_train.reshape(-1, 1)).reshape(X_train.shape)
     X_test_prep = scaler.transform(X_test.reshape(-1, 1)).reshape(X_test.shape)
     X_sub_prep = scaler.transform(X_sub.reshape(-1, 1)).reshape(X_sub.shape)
     #print("Shape: ",X_train_prep.shape)
     input_size = 1
 
-    segment_length = 60
+    segment_length = 120 # 1 hour before and after 
     batch_size = 256
 
     train = HeartRateDataset(X_train_prep, y_train, segment_length)
@@ -261,9 +262,9 @@ def main_large(feature_path = "./data/xml_export/HeartRate.csv"):
         model = torch.compile(model)
 
     # Training Config
-    learning_rate = 0.0001
+    learning_rate = 0.001
     criterion = nn.BCELoss()
-    optimizer = Adam(model.parameters(), lr=learning_rate) #, weight_decay=0.25
+    optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
     num_epochs = 50
 
     trainer = Trainer(model, device, learning_rate, criterion, optimizer)

@@ -27,7 +27,7 @@ class TimeSeriesDataset(Dataset):
         return len(self.data) - self.lookback - self.output_size + 1
 
     def __getitem__(self, idx):
-        x = self.data[idx:idx + self.lookback].t()
+        x = self.data[idx:idx + self.lookback]
         y = self.data[idx + self.lookback:idx + self.lookback + self.output_size, -1] # ytrain in last column
         return x, y
 
@@ -38,30 +38,15 @@ class LSTMModel(nn.Module):
         self.device = device
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        
-        # Convolutional layers for feature extraction
-        self.cnn = nn.Sequential(
-            nn.Conv1d(input_size, input_size*2, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            
-            nn.Conv1d(input_size*2, input_size*4, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2)
-        )
-        self.LSTM = nn.LSTM(input_size*4, hidden_size, num_layers, batch_first=True, dropout=dropout_rate if num_layers > 1 else 0, bidirectional=True)
-        self.norm = nn.LayerNorm(hidden_size * 2)
+        self.LSTM = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate if num_layers > 1 else 0)
+        self.layer_norm = nn.LayerNorm(hidden_size)
         self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(hidden_size * 2, output_size)
+        self.fc = nn.Linear(hidden_size, output_size)
         self.activation_function = activation_function
         
     def forward(self, x):
-        # Apply CNN feature extraction
-        out = self.cnn(x)
-        out = out.transpose(1, 2)  # Swap the channel and time dimensions
-        out, _ = self.LSTM(out)
-        out = out[:, -1, :]        # Take the output from the last time step
-        out = self.norm(out)
+        out, _ = self.LSTM(x)
+        out = self.layer_norm(out[:, -1, :])
         out = self.dropout(out)
         out = self.fc(out)
 
@@ -176,12 +161,13 @@ class LSTMTrainer:
                 input_tensor[-1, -1] = predictions[i - 1] if i > 0 else 0
 
                 # Make a prediction using the model
-                output = self.model(input_tensor[:-1].unsqueeze(0))
+                output = self.model(input_tensor.unsqueeze(0))
 
                 # Store the prediction in the predictions tensor
                 predictions[i] = output.squeeze()
 
         return predictions.cpu().numpy()
+
 
 
 
@@ -196,14 +182,16 @@ if __name__ == "__main__":
     data.preprocess_data()
     
     # Feature Config
-    lookback = 7 # Lookback window size
+    lookback = 14 # Lookback window size
     input_size = data.train.shape[1]+1 # Number of features (plus 1 for the target)
     output_size = 1 # Number of targets
-    batch_size = 32
+    batch_size = 16
+    
     
     train = pd.concat([data.X_train, data.y_train], axis=1).to_numpy()
     test = pd.concat([data.X_test, data.y_test], axis=1).to_numpy()
     
+    print('shapes', train.shape, test.shape)
     input_size = train.shape[1]
     
     train = TimeSeriesDataset(train, lookback, output_size)
@@ -216,16 +204,16 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # CUDA support
     hidden_size = 64
     num_layers = 2
-    learning_rate = 0.001
-    dropout_rate = 0.5
-    activation_function = 'relu'
+    learning_rate = 0.0001
+    dropout_rate = 0.4
+    activation_function = 'linear'
     
     model = LSTMModel(device, input_size, hidden_size, num_layers, output_size, dropout_rate, activation_function).to(device)
     
     # Training Config
     criterion = 'huber'
     optimizer = 'adam'
-    num_epochs = 50
+    num_epochs = 20
     
     trainer = LSTMTrainer(model, device, learning_rate, criterion, optimizer)
     
@@ -238,7 +226,7 @@ if __name__ == "__main__":
     sub = pd.read_csv( "./data/test.csv")
     sub["date"] = pd.to_datetime(sub["date"]).dt.date
     sub = sub.merge(data.xml_data, on="date", how="left")
-    sub - sub.merge(data.activity_data, on="date", how="left")
+    sub = sub.merge(data.activity_data, on="date", how="left")
     sub = data._feature_engineering(sub)
     sub = sub[data.columns] # Keep only columns that are in the train data
     sub = sub.drop(columns=["date", "sleep_hours"], errors = 'ignore') # Drop date column from df

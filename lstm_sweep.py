@@ -2,7 +2,7 @@ import logging
 import random
 import yaml
 import json
-
+import time
 import numpy as np
 import pandas as pd
 
@@ -13,6 +13,8 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 
 import wandb
+from sklearn.preprocessing import RobustScaler
+from sklearn.impute import SimpleImputer
 
 from data import POG4_Dataset
 from lstm import TimeSeriesDataset, LSTMModel, LSTMTrainer, set_seed
@@ -65,17 +67,25 @@ if __name__ == "__main__":
     # Load the dataset
     data = POG4_Dataset()
     data.train_test_split()
-    data.preprocess_data()
 
-    y_train_scaled, y_test_scaled = data.scale_target()
-    target_scaler = data.target_scaler
-    
-    y_train_scaled = pd.DataFrame(y_train_scaled, columns=["sleep_hours"])
-    y_test_scaled = pd.DataFrame(y_test_scaled, columns=["sleep_hours"])
+    imputer = SimpleImputer(strategy="median")
+    scaler_f = RobustScaler() 
+    scaler_t = RobustScaler() 
+
+    X_train_imputed = pd.DataFrame(imputer.fit_transform(data.X_train), columns=data.X.columns) # Imputer 
+    X_train_scaled = pd.DataFrame(scaler_f.fit_transform(X_train_imputed), columns=data.X.columns) # Scaler
+
+    X_test_imputed = pd.DataFrame(imputer.transform(data.X_test), columns=data.X.columns) # Imputer
+    X_test_scaled = pd.DataFrame(scaler_f.transform(X_test_imputed), columns=data.X.columns) # Scaler
+
+    y_train_scaled = pd.DataFrame(scaler_t.fit_transform(data.y_train.values.reshape(-1, 1)), columns=["sleep_hours"])
+    y_test_scaled = pd.DataFrame(scaler_t.transform(data.y_test.values.reshape(-1, 1)), columns=["sleep_hours"])
+
+    target_scaler = scaler_t
     
     # Create train and test sets
-    df_train = pd.concat([data.X_train, y_train_scaled], axis=1).to_numpy()
-    df_test = pd.concat([data.X_test, y_test_scaled], axis=1).to_numpy()
+    df_train = pd.concat([X_train_scaled, y_train_scaled], axis=1).to_numpy()
+    df_test = pd.concat([X_test_scaled, y_test_scaled], axis=1).to_numpy()
     
     input_size = df_train.shape[1] # Number of features (plus 1 for the target)
     output_size = 1 # Number of targets
@@ -86,9 +96,10 @@ if __name__ == "__main__":
     with open("lstm_sweep_config.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_lstm")
-    wandb.agent(sweep_id, function=sweep)
-    
+    #sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_lstm")
+    sweep_id = "ye272iuc"
+    wandb.agent(sweep_id=sweep_id, project="pog4_lstm", function=sweep)
+
     api = wandb.Api()
     runs = api.runs("sgobat/pog4_lstm")
 

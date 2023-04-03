@@ -57,8 +57,10 @@ class CNNBlock(nn.Module):
 
         self.block = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm1d(out_channels),
             nn.LeakyReLU(),
             nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm1d(out_channels),
             nn.LeakyReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2)
         )
@@ -73,9 +75,10 @@ class DilatedBlock(nn.Module):
         super(DilatedBlock, self).__init__()
 
         layers = []
-        for i in range(4): # Lowered from 4
+        for i in range(5): 
             layers.extend([
                 nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=2**i, dilation=2**i),
+                nn.BatchNorm1d(out_channels),
                 nn.LeakyReLU(),
                 nn.Dropout(0.2)
             ])
@@ -293,9 +296,9 @@ def main_large():
         model = torch.compile(model)
         
     # Training Config
-    learning_rate = 0.0001
+    learning_rate = 0.001
     criterion = nn.BCELoss()
-    optimizer = Adam(model.parameters(), lr=learning_rate) #, weight_decay=0.25
+    optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
     num_epochs = 100
 
     trainer = Trainer(model, device, learning_rate, criterion, optimizer)

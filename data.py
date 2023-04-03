@@ -64,6 +64,8 @@ class POG4_Dataset():
         df['startDate'] = pd.to_datetime(df['startDate']).dt.tz_localize(None)
         df['endDate'] = pd.to_datetime(df['endDate']).dt.tz_localize(None)
         
+        df = df.sort_values(by=['startDate', 'endDate'])
+        
         # Get the date range in the dataframe
         min_date = df['startDate'].min().date()
         max_date = df['endDate'].max().date()
@@ -73,13 +75,13 @@ class POG4_Dataset():
 
         # Loop through each date in the range
         for date in pd.date_range(min_date, max_date):
-            # startSleep time boundaries - Based on statistical analysis of train_detailed
+            # startSleep time boundaries - Based on analysis of train_detailed
             start_day = pd.Timestamp.combine(date, pd.Timestamp('22:30:00').time())
-            end_day = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('03:00:00').time())
+            end_day = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('01:30:00').time())
             
-            # endSleep time boundaries - Based on statistical analysis of train_detailed
-            start_night = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('05:30:00').time())
-            end_night = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('9:00:00').time())
+            # endSleep time boundaries - Based on analysis of train_detailed
+            start_night = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('06:30:00').time())
+            end_night = pd.Timestamp.combine(date + pd.DateOffset(1), pd.Timestamp('9:30:00').time())
 
             # Filter the dataframe for max_endDate
             mask_endDate = (df['endDate'] >= start_day) & (df['endDate'] <= end_day)
@@ -90,18 +92,18 @@ class POG4_Dataset():
             filtered_df_startDate = df[mask_startDate]
 
             # Find max_endDate and min_startDate
-            min_endDate = filtered_df_endDate['endDate'].min()
-            max_endDate = filtered_df_endDate['endDate'].max()
-            min_startDate = filtered_df_startDate['startDate'].min()
-            max_startDate = filtered_df_startDate['startDate'].max()
+            min_endDate = filtered_df_endDate['endDate'].min() # if not filtered_df_endDate.empty else pd.to_datetime(start_day)
+            max_endDate = filtered_df_endDate['endDate'].max() # if not filtered_df_endDate.empty else pd.to_datetime(end_day)
+            min_startDate = filtered_df_startDate['startDate'].min() # if not filtered_df_startDate.empty else pd.to_datetime(start_night)
+            max_startDate = filtered_df_startDate['startDate'].max() # if not filtered_df_startDate.empty else pd.to_datetime(end_night)
 
             # Append the results to the list
             results.append({
                 'date': date,
-                'min_endDate': min_endDate,
-                'max_endDate': max_endDate,
-                'min_startDate': min_startDate,
-                'max_startDate': max_startDate
+                'min_endDate': min_endDate, # Min Possible Start Sleeping
+                'max_endDate': max_endDate, # Max Possible Start Sleeping
+                'min_startDate': min_startDate, # Min Possible End Sleeping
+                'max_startDate': max_startDate # Max Possible End Sleeping
             })
 
         # Convert the results to a dataframe and return
@@ -129,6 +131,8 @@ class POG4_Dataset():
         logging.debug(f"Featurizing {path}")
         csv_df = pd.read_csv(path, low_memory=False)
         base_name = os.path.basename(path).split(".")[0]
+        
+        
 
         value = "totalEnergyBurned" if base_name == "Workout" else "value"
         agg_func = "mean" if base_name == "BodyMassIndex" else "sum"
@@ -137,14 +141,16 @@ class POG4_Dataset():
         csv_df["endDate"] = pd.to_datetime(csv_df["endDate"]).dt.tz_convert("US/Eastern")
         csv_df["date"] = (pd.to_datetime(csv_df["startDate"])- pd.to_timedelta('12:00:00')).dt.date
         csv_df["time"] = pd.to_datetime(csv_df["startDate"]).dt.time
+        
+        csv_df = csv_df.sort_values(by=['startDate', 'endDate'])
+        
         csv_df["hours_between"] = (csv_df["startDate"].shift(-1) - csv_df["endDate"]).dt.total_seconds() / 3600
-
+        csv_df['is_night'] = (csv_df['startDate'] - pd.Timedelta(hours=12)).dt.date == csv_df['startDate'].dt.date
         
         groupby_agg = {
             "startDate": ["max", "min"],
             "endDate": ["max", "min"],
             f"{value}": agg_func,
-            "hours_between": "sum",
             "hours_between" : "max"
         }
 
@@ -152,8 +158,13 @@ class POG4_Dataset():
         df.columns = ["_".join(tup).rstrip("_") for tup in df.columns.values]
 
         df = df.rename(columns={f"{value}_{agg_func}": base_name})
-        df = df.rename(columns={"hours_between_sum": base_name+"_sum_hrs_between"})
         df = df.rename(columns={"hours_between_max": base_name+"_max_hrs_between"})
+        
+        # Sum hours between if is_night is True 
+        def sum_night_hours(group):
+            return group.loc[group['is_night'], 'hours_between'].sum()
+
+        df[f"{base_name}_sum_hrs_between"] = csv_df.groupby("date").apply(sum_night_hours).values
         
         for time_col in ["startDate_max", "startDate_min", "endDate_max", "endDate_min"]:
             # Hours
