@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
@@ -28,14 +28,13 @@ def sweep():
     run = wandb.init()
     config = wandb.config
     
-    et_params = {
-        "n_estimators": config.n_estimators,
-        "max_depth": config.max_depth,
-        "min_samples_split": config.min_samples_split,
-        "min_samples_leaf": config.min_samples_leaf,
+    knn_params = {
+        "n_neighbors": config.n_neighbors,
+        "weights": config.weights,
+        "p": config.p
     }
 
-    model = ExtraTreesRegressor(**et_params, random_state=seed)
+    model = KNeighborsRegressor(**knn_params)
     
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -83,20 +82,20 @@ if __name__ == "__main__":
     y = pd.concat([data.y_train, data.y_test], axis = 0)
     
     # Load the sweep configuration from the YAML file
-    with open("extratree_sweep_config.yml") as f:
+    with open("knn_sweep_config.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_et")
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_knn")
     wandb.agent(sweep_id, function=sweep)
     
     api = wandb.Api()
-    runs = api.runs("sgobat/pog4_et")
+    runs = api.runs("sgobat/pog4_knn")
 
     best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config
-    with open("et_best_params.json", "w") as f:
+    with open("knn_best_params.json", "w") as f:
         json.dump(best_params, f, indent=4)
 
     print(f"Best run: {best_run.id}")

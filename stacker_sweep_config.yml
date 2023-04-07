@@ -1,0 +1,49 @@
+name: pog4_stacker_sweep
+method: bayes
+metric:
+  name: RMSE
+  goal: minimize
+parameters:
+  # Preprocessing
+  imputer:
+    values: ["median", "most_frequent"]
+  scaler:
+    values: ["minmax", "robust"]
+  # KNN
+  knn_n_neighbors:
+    min: 5
+    max: 50
+  knn_weights:
+    values: ["uniform", "distance"]
+  knn_p:
+    values: [1, 2]
+  # Random Forest
+  rf_n_estimators:
+    min: 10
+    max: 500
+  rf_max_depth:
+    min: 2
+    max: 30
+  rf_min_samples_split:
+    min: 2
+    max: 10
+  rf_min_samples_leaf:
+    min: 1
+    max: 10
+  # Extra Trees
+  et_n_estimators:
+    min: 10
+    max: 500
+  et_max_depth:
+    min: 2
+    max: 30
+  et_min_samples_split:
+    min: 2
+    max: 10
+  et_min_samples_leaf:
+    min: 1
+    max: 10
+  # Final Regression Regularization
+  stack_ridge_alpha:
+    min: 0.1
+    max: 10.0

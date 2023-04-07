@@ -75,14 +75,14 @@ def sweep():
     
 
     # # Fit the model to the entire dataset
-    # model.fit(X, y)
+    model.fit(X, y)
 
     # # Get feature importances
-    # feature_importances = model.feature_importances_
+    feature_importances = model.feature_importances_
  
     # # Log feature importances to wandb as a dictionary
-    # importances_dict = {f'feature/{feature_name}': importance for feature_name, importance in zip(X.columns, feature_importances)}
-    # wandb.log(importances_dict)
+    importances_dict = {f'feature/{feature_name}': importance for feature_name, importance in zip(X.columns, feature_importances)}
+    wandb.log(importances_dict)
 
     # Log the metrics to W&B
     wandb.log({"AUC": avg_auc_score, "Accuracy": avg_accuracy_score, "F1": avg_f1_score, "Precision": avg_precision_score, "Recall": avg_recall_score})

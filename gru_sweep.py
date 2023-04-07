@@ -94,8 +94,8 @@ if __name__ == "__main__":
     with open("gru_sweep_config.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    #sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_gru")
-    sweep_id = "9mez8jf4"
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_gru")
+    #sweep_id = "9mez8jf4"
     wandb.agent(sweep_id, project="pog4_gru", function=sweep)
     
     api = wandb.Api()

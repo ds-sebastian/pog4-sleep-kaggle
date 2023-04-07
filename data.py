@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s") # 
 
 class POG4_Dataset():
     """Initialize Dataset class."""
-    def __init__(self, train_path: str = "./data/train.csv",  xml_export_path: str = "./data/xml_export", start_date = "2020-06-01") -> None:
+    def __init__(self, train_path: str = "./data/train.csv",  xml_export_path: str = "./data/xml_export", start_date = "2015-06-01") -> None:
         self.start_date = start_date
         self.xml_data = self.create_xml_data(xml_export_path, ['Workout', 'WalkingSpeed', 'ActiveEnergyBurned', 'RunningSpeed', 'AppleWalkingSteadiness', 'EnvironmentalAudioExposure', 'StairDescentSpeed', 'LowHeartRateEvent', 'RunningGroundContactTime', 'DistanceCycling', 'HandwashingEvent', 'NumberOfTimesFallen', 'BasalEnergyBurned', 'MindfulSession', 'SixMinuteWalkTestDistance', 'StairAscentSpeed', 'HKDataTypeSleepDurationGoal', 'HeartRateVariabilitySDNN', 'Height', 'OxygenSaturation', 'RunningStrideLength', 'HeartRateRecoveryOneMinute', 'WalkingStepLength', 'SwimmingStrokeCount', 'BodyMass', 'FlightsClimbed', 'DietaryEnergyConsumed', 'AudioExposureEvent', 'HeadphoneAudioExposure', 'StepCount', 'WalkingAsymmetryPercentage', 'RespiratoryRate', 'HeartRate', 'DietaryWater', 'BodyMassIndex', 'RunningPower', 'VO2Max', 'DistanceWalkingRunning', 'HeadphoneAudioExposureEvent', 'HighHeartRateEvent', 'WalkingDoubleSupportPercentage', 'AppleExerciseTime', 'RestingHeartRate', 'AppleStandTime', 'WalkingHeartRateAverage', 'DistanceSwimming', 'EnvironmentalSoundReduction', 'AppleStandHour', 'RunningVerticalOscillation'])
         self.activity_data = self.create_activity_data(os.path.join(xml_export_path, "ActivitySummary.csv"))
@@ -96,32 +96,51 @@ class POG4_Dataset():
             max_endDate = filtered_df_endDate['endDate'].max() # if not filtered_df_endDate.empty else pd.to_datetime(end_day)
             min_startDate = filtered_df_startDate['startDate'].min() # if not filtered_df_startDate.empty else pd.to_datetime(start_night)
             max_startDate = filtered_df_startDate['startDate'].max() # if not filtered_df_startDate.empty else pd.to_datetime(end_night)
+            
+            # Convert Timestamps to POSIX timestamps (seconds since the epoch)
+            # min_endDate_posix = min_endDate.timestamp() if pd.notnull(min_endDate) else np.nan
+            # max_endDate_posix = max_endDate.timestamp() if pd.notnull(max_endDate) else np.nan
+            # min_startDate_posix = min_startDate.timestamp() if pd.notnull(min_startDate) else np.nan
+            # max_startDate_posix = max_startDate.timestamp() if pd.notnull(max_startDate) else np.nan
 
+            # Calculate the mean of POSIX timestamps
+            # avg_endDate_posix = np.nanmean([min_endDate_posix, max_endDate_posix])
+            # avg_startDate_posix = np.nanmean([min_startDate_posix, max_startDate_posix])
+
+            # Convert POSIX timestamps back to pandas Timestamps
+            # avg_endDate = pd.to_datetime(avg_endDate_posix, unit='s')
+            # avg_startDate = pd.to_datetime(avg_startDate_posix, unit='s')
+            
             # Append the results to the list
             results.append({
                 'date': date,
                 'min_endDate': min_endDate, # Min Possible Start Sleeping
                 'max_endDate': max_endDate, # Max Possible Start Sleeping
+                # 'avg_endDate': avg_endDate, # Average Possible Start Sleeping
                 'min_startDate': min_startDate, # Min Possible End Sleeping
-                'max_startDate': max_startDate # Max Possible End Sleeping
+                'max_startDate': max_startDate, # Max Possible End Sleeping
+                # 'avg_startDate': avg_startDate # Average Possible End Sleeping
             })
 
         # Convert the results to a dataframe and return
         result_df = pd.DataFrame(results)
         
         # Time Differences in hours # Attempt to manually calculate sleep time - doesn't work, but still useful
-        result_df["nhours_min_min"] = (result_df["min_startDate"] - result_df["min_endDate"]).dt.total_seconds() / 3600
-        result_df["nhours_min_max"] = (result_df["min_startDate"] - result_df["max_endDate"]).dt.total_seconds() / 3600
-        result_df["nhours_max_min"] = (result_df["max_startDate"] - result_df["min_endDate"]).dt.total_seconds() / 3600
-        result_df["nhours_max_max"] = (result_df["max_startDate"] - result_df["max_endDate"]).dt.total_seconds() / 3600
+        result_df["slp_hrs_min_min"] = (result_df["min_startDate"] - result_df["min_endDate"]).dt.total_seconds() / 3600
+        result_df["slp_hrs_min_max"] = (result_df["min_startDate"] - result_df["max_endDate"]).dt.total_seconds() / 3600
+        result_df["slp_hrs_max_min"] = (result_df["max_startDate"] - result_df["min_endDate"]).dt.total_seconds() / 3600
+        result_df["slp_hrs_max_max"] = (result_df["max_startDate"] - result_df["max_endDate"]).dt.total_seconds() / 3600
+        # result_df["nhours_avg_avg"] = (result_df["avg_startDate"] - result_df["avg_endDate"]).dt.total_seconds() / 3600
         
         # Hours
-        result_df["min_endDate_hr"] = result_df["min_endDate"].dt.hour
-        result_df["max_endDate_hr"] = result_df["max_endDate"].dt.hour
-        result_df["min_startDate_hr"] = result_df["min_startDate"].dt.hour
-        result_df["max_startDate_hr"] = result_df["max_startDate"].dt.hour
+        result_df["slp_min_endDate_hr"] = result_df["min_endDate"].dt.hour
+        result_df["slp_max_endDate_hr"] = result_df["max_endDate"].dt.hour
+        result_df["slp_min_startDate_hr"] = result_df["min_startDate"].dt.hour
+        result_df["slp_max_startDate_hr"] = result_df["max_startDate"].dt.hour
+        # result_df["avg_startDate_hr"] = result_df["avg_startDate"].dt.hour
+        # result_df["avg_endDate_hr"] = result_df["avg_endDate"].dt.hour
         
-        result_df = result_df.drop(columns = ["min_endDate", "max_endDate", "min_startDate", "max_startDate"]).reset_index(drop=True)
+        result_df = result_df.drop(columns = ["min_endDate", "max_endDate", "min_startDate", "max_startDate", "avg_endDate", "avg_startDate"], errors="ignore").reset_index(drop=True)
         
         return result_df
         
@@ -132,8 +151,7 @@ class POG4_Dataset():
         csv_df = pd.read_csv(path, low_memory=False)
         base_name = os.path.basename(path).split(".")[0]
         
-        
-
+    
         value = "totalEnergyBurned" if base_name == "Workout" else "value"
         agg_func = "mean" if base_name == "BodyMassIndex" else "sum"
         
@@ -158,13 +176,13 @@ class POG4_Dataset():
         df.columns = ["_".join(tup).rstrip("_") for tup in df.columns.values]
 
         df = df.rename(columns={f"{value}_{agg_func}": base_name})
-        df = df.rename(columns={"hours_between_max": base_name+"_max_hrs_between"})
+        df = df.rename(columns={"hours_between_max": "slp_"+base_name+"_max_hrs_between"})
         
         # Sum hours between if is_night is True 
         def sum_night_hours(group):
             return group.loc[group['is_night'], 'hours_between'].sum()
 
-        df[f"{base_name}_sum_hrs_between"] = csv_df.groupby("date").apply(sum_night_hours).values
+        df[f"slp_{base_name}_sum_hrs_between"] = csv_df.groupby("date").apply(sum_night_hours).values
         
         for time_col in ["startDate_max", "startDate_min", "endDate_max", "endDate_min"]:
             # Hours
@@ -179,16 +197,8 @@ class POG4_Dataset():
         night_hours_df["date"] = pd.to_datetime(night_hours_df["date"]).dt.date
         df = df.merge(night_hours_df, how="left", on = "date")
 
-        
         df = self._fix_doubling(df, base_name)
         df = df.drop(columns=["startDate_max", "startDate_min", "endDate_max", "endDate_min"]) 
-        
-        
-        # Sleep Modeling - HIGHLY EXPERIMENTAL
-        # if base_name in ["HeartRate", "RestingHeartRate", "StepCount","DistanceWalkingRunning"]:
-        #     sleep_estimates = self._estimate_sleep_lengths_hmm(csv_df[["startDate", "value"]], "value")
-        #     sleep_estimates = sleep_estimates.rename(columns={"sleep_hours": f"{base_name}_sleep_hours"})
-        #     df = df.merge(sleep_estimates, how="left", on = "date")
 
         return df
 
@@ -239,10 +249,27 @@ class POG4_Dataset():
         logging.info("Featurizing time series data")
         df = df.copy()       
         
+        # Sort by date
+        df = df.sort_values(by="date")
+        
         ### Time series Data ###
         df["day_of_week"] = pd.to_datetime(df["date"]).dt.dayofweek
-        df["dow_sin"] = np.sin(df['day_of_week'] * (2 * np.pi / 7))
-        df["dow_cos"] = np.cos(df['day_of_week'] * (2 * np.pi / 7))
+        # df["dow_sin"] = np.sin(df['day_of_week'] * (2 * np.pi / 7))
+        # df["dow_cos"] = np.cos(df['day_of_week'] * (2 * np.pi / 7))
+        df["is_sunday"] = (df["day_of_week"] == 6).astype(int)
+        df["is_monday"] = (df["day_of_week"] == 0).astype(int)
+        df["is_tuesday"] = (df["day_of_week"] == 1).astype(int)
+        df["is_wednesday"] = (df["day_of_week"] == 2).astype(int)
+        df["is_thursday"] = (df["day_of_week"] == 3).astype(int)
+        df["is_friday"] = (df["day_of_week"] == 4).astype(int)
+        df["is_saturday"] = (df["day_of_week"] == 5).astype(int)
+        # df["is_mwf"] = df["day_of_week"].isin([0,2,4])
+        # df["is_tth"] = df["day_of_week"].isin([1,3])
+        df["is_weekend"] = df["day_of_week"].isin([5,6])
+        
+        df["day_of_month"] = pd.to_datetime(df["date"]).dt.day
+        # df["dom_sin"] = np.sin(df['day_of_month'] * (2 * np.pi / 30))
+        # df["dom_cos"] = np.cos(df['day_of_month'] * (2 * np.pi / 30))
 
         df["day_of_year"] = pd.to_datetime(df["date"]).dt.dayofyear
         df["doy_sin"] = np.sin(df['day_of_year'] * (2 * np.pi / 365))
@@ -255,14 +282,22 @@ class POG4_Dataset():
         cal = USFederalHolidayCalendar()
         holidays = cal.holidays(start="2014-01-01", end="2023-12-31") 
         df["is_holiday"] = df["date"].apply(lambda x: 1 if x in holidays else 0)
-        df["is_weekend"] = df["day_of_week"].apply(lambda x: 1 if x >= 5 else 0)
-        df["is_workday"] = 1-(df["is_weekend"] + df["is_holiday"])
-        df["is_daylight_savings"] = df["date"].apply(lambda x: self._is_daylight_savings(x))
+        
+        # Not holiday and workday (Mon-Fri)
+        df["is_workday"] = (df["is_holiday"] == 0) & (df["day_of_week"] < 5)
+        
+        # df["is_daylight_savings"] = df["date"].apply(lambda x: self._is_daylight_savings(x))
 
         # Create dow_median column #? could create a bunch of useful summary statistics to use later?
-        median = df.groupby("day_of_week")["sleep_hours"].median()
-        df["dow_median"] = df["day_of_week"].map(median)
+        # DOW Median up until the current day
+        df["dow_median"] = df.groupby('day_of_week').apply(lambda group: group.sort_values(by='date')['sleep_hours'].expanding().median().shift(1)).reset_index(level=0, drop=True)
+        
+        # DOY Mean up until that day
+        #doy_mean = df.groupby("day_of_year")["sleep_hours"].mean()
+        df["doy_mean"] = df.groupby('day_of_year').apply(lambda group: group.sort_values(by='date')['sleep_hours'].expanding().mean().shift(1)).reset_index(level=0, drop=True)
 
+        #df = df.drop(columns = ["day_of_week", "day_of_year", "is_weekend", "is_holiday"])
+        
         # Interactions
         logging.info("Creating interactions...")
         df["distance_per_step"] = df["DistanceWalkingRunning"] / df["StepCount"] # To account for jumping, hiking, etc.
@@ -278,15 +313,6 @@ class POG4_Dataset():
             df[f'min_{pattern}'] = df_no_zeros.min(axis=1)
             df = df.drop(columns = filtered_columns, errors = "ignore")
             
-        # df["avg_startDate_max_sin"] = np.sin(df['avg_startDate_max_hr'] * (2 * np.pi / 24))
-        # df["avg_startDate_max_cos"] = np.cos(df['avg_startDate_max_hr'] * (2 * np.pi / 24))
-        # df["avg_startDate_min_sin"] = np.sin(df['avg_startDate_min_hr'] * (2 * np.pi / 24))
-        # df["avg_startDate_min_cos"] = np.cos(df['avg_startDate_min_hr'] * (2 * np.pi / 24))
-        # df["avg_endDate_max_sin"] = np.sin(df['avg_endDate_max_hr'] * (2 * np.pi / 24))
-        # df["avg_endDate_max_cos"] = np.cos(df['avg_endDate_max_hr'] * (2 * np.pi / 24))
-        # df["avg_endDate_min_sin"] = np.sin(df['avg_endDate_min_hr'] * (2 * np.pi / 24))
-        # df["avg_endDate_min_cos"] = np.cos(df['avg_endDate_min_hr'] * (2 * np.pi / 24))
-
         return df
 
     def create_train(self, path: str, freq_threshold: float = 0.9) -> pd.DataFrame:
@@ -295,7 +321,9 @@ class POG4_Dataset():
         df["date"] = pd.to_datetime(df["date"]).dt.date
         
         # Filter date on >= self.start_date
-        df = df[df["date"] >= pd.to_datetime(self.start_date)].reset_index(drop=True)
+        #df = df[df["date"] >= pd.to_datetime(self.start_date)].reset_index(drop=True)
+        df = df[df["date"] >= pd.to_datetime(self.start_date).date()].reset_index(drop=True)
+
         
         df = df.sort_values(by="date")
         df = self._fix_doubling(df, "sleep_hours")
@@ -328,169 +356,82 @@ class POG4_Dataset():
         logging.info(f"Dropped non-unique columns: {to_drop}")
         
         #Keep important features:
-        to_keep = ["date", "sleep_hours","is_workday",
-                "AppleStandTime_max_hrs_between",
-                "AppleStandTime_max_endDate_hr",
-                "FlightsClimbed_max_endDate_hr",
-                "AppleExerciseTime_max_hrs_between",
-                "min_endDate_max_hr",
-                "AppleStandTime_nhours_max_max",
-                "FlightsClimbed_min_endDate_hr",
-                "StairDescentSpeed_min_endDate_hr",
-                "appleStandHours",
-                "min_startDate_max_hr",
-                "StairDescentSpeed_max_endDate_hr",
-                "BasalEnergyBurned",
-                "doy_cos",
-                "OxygenSaturation",
-                "FlightsClimbed_nhours_min_max",
-                "HeartRateVariabilitySDNN_nhours_min_min",
-                "month",
-                "AppleStandTime_nhours_min_max",
-                "AppleStandTime_min_startDate_hr",
-                "DistanceWalkingRunning_max_startDate_hr",
-                "min_startDate_min_hr",
-                "day_of_year",
-                "month_cos",
-                "appleExerciseTime",
-                "FlightsClimbed_nhours_max_max",
-                "HeartRateVariabilitySDNN_min_endDate_hr",
-                "month_sin",
-                "WalkingSpeed_max_startDate_hr",
-                "AppleStandTime_max_startDate_hr",
-                "distance_per_step",
-                "StairDescentSpeed_max_hrs_between",
-                "WalkingHeartRateAverage",
-                "FlightsClimbed_max_hrs_between",
-                "DistanceWalkingRunning",
-                "EnvironmentalAudioExposure_nhours_max_max",
-                "min_endDate_min_hr",
-                "AppleExerciseTime_min_startDate_hr",
-                "StepCount_min_startDate_hr",
-                "AppleExerciseTime_max_endDate_hr",
-                "avg_startDate_max_hr",
-                "StepCount",
-                "FlightsClimbed_nhours_min_min",
-                "StepCount_max_startDate_hr",
-                "StepCount_nhours_max_max",
-                "WalkingHeartRateAverage_max_hrs_between",
-                "max_startDate_min_hr",
-                "StepCount_max_endDate_hr",
-                "avg_endDate_max_hr",
-                "OxygenSaturation_nhours_max_min",
-                "activeEnergyBurned",
-                "OxygenSaturation_nhours_min_min",
-                "StepCount_nhours_min_max",
-                "HeartRateVariabilitySDNN_max_hrs_between",
-                "DistanceWalkingRunning_nhours_max_max",
-                "VO2Max_max_hrs_between",
-                "WalkingSpeed_max_hrs_between",
-                "RestingHeartRate_max_hrs_between",
-                "avg_startDate_min_hr",
-                "StairDescentSpeed_min_startDate_hr",
-                "HeartRateVariabilitySDNN_nhours_max_min",
-                "VO2Max",
-                "ActiveEnergyBurned_nhours_min_min",
-                "DistanceWalkingRunning_nhours_min_max",
-                "DistanceWalkingRunning_min_endDate_hr",
-                "ActiveEnergyBurned_nhours_min_max",
-                "calorie_per_step",
-                "calorie_per_distance",
-                "ActiveEnergyBurned_nhours_max_min",
-                "HeadphoneAudioExposure",
-                "RestingHeartRate",
-                "BasalEnergyBurned_max_hrs_between",
-                "dow_median",
-                "EnvironmentalAudioExposure",
-                "AppleStandTime_nhours_min_min",
-                "FlightsClimbed_min_startDate_hr",
-                "FlightsClimbed_nhours_max_min",
-                "FlightsClimbed",
-                "HeartRate_nhours_min_min",
-                "DistanceWalkingRunning_max_endDate_hr",
-                "AppleExerciseTime_max_startDate_hr",
-                "EnvironmentalAudioExposure_nhours_max_min",
-                "HeartRate",
-                "HeartRate_nhours_min_max",
-                "AppleStandTime_nhours_max_min",
-                "workout_duration",
-                "StepCount_min_endDate_hr",
-                "WalkingStepLength_max_hrs_between",
-                "StairDescentSpeed",
-                "day_of_week",
-                "DistanceWalkingRunning_min_startDate_hr",
-                "AppleStandTime",
-                "StairAscentSpeed_max_hrs_between",
-                "max_startDate_max_hr",
-                "StepCount_nhours_max_min",
-                "workout_totalDistance",
-                "BodyMass",
-                "BasalEnergyBurned_nhours_min_min",
-                "AppleExerciseTime",
-                "EnvironmentalAudioExposure_nhours_min_min",
-                "ActiveEnergyBurned",
-                "doy_sin",
-                "EnvironmentalAudioExposure_max_hrs_between",
-                "HeartRate_max_hrs_between",
-                "HeadphoneAudioExposure_max_hrs_between",
-                "DistanceWalkingRunning_nhours_max_min",
-                "EnvironmentalAudioExposure_nhours_min_max",
-                "WalkingStepLength",
-                "avg_endDate_min_hr",
-                "ActiveEnergyBurned_max_hrs_between",
-                "BodyMass_max_hrs_between",
-                "AppleExerciseTime_min_endDate_hr",
-                "HeartRateVariabilitySDNN",
-                "WalkingAsymmetryPercentage",
-                "WalkingDoubleSupportPercentage_max_hrs_between",
-                "StepCount_max_hrs_between",
-                "OxygenSaturation_nhours_min_max",
-                "BasalEnergyBurned_nhours_max_min",
-                "OxygenSaturation_nhours_max_max",
-                "WalkingDoubleSupportPercentage",
-                "workout_totalDistanceUnit",
-                "WalkingSpeed_min_startDate_hr",
-                "StairAscentSpeed_max_endDate_hr",
-                "OxygenSaturation_max_hrs_between",
-                "BasalEnergyBurned_nhours_min_max",
-                "dow_sin",
-                "HeartRateVariabilitySDNN_nhours_min_max",
-                "DistanceWalkingRunning_nhours_min_min",
-                "WalkingAsymmetryPercentage_max_hrs_between",
-                "BasalEnergyBurned_nhours_max_max",
-                "FlightsClimbed_max_startDate_hr",
-                "StairAscentSpeed_min_endDate_hr",
-                "StairAscentSpeed",
-                "StepCount_nhours_min_min",
-                "WalkingSpeed",
-                "AppleStandTime_min_endDate_hr",
-                "HeartRate_nhours_max_max",
-                "HeartRate_nhours_max_min",
-                "OxygenSaturation_min_endDate_hr",
-                "max_endDate_max_hr",
-                "DistanceWalkingRunning_max_hrs_between",
-                "ActiveEnergyBurned_nhours_max_max",
-                "HeartRateVariabilitySDNN_max_endDate_hr",
-                "dow_cos",
-                "HeartRateVariabilitySDNN_max_startDate_hr",
-                "OxygenSaturation_max_startDate_hr",
-                "HeartRateVariabilitySDNN_min_startDate_hr",
-                "HeartRateVariabilitySDNN_nhours_max_max",
-                "EnvironmentalAudioExposure_max_startDate_hr",
-                "AppleStandHour_max_hrs_between",
-                "StairDescentSpeed_max_startDate_hr",
-                "WalkingStepLength_min_startDate_hr",
-                "OxygenSaturation_min_startDate_hr",
-                "max_endDate_min_hr",
-                "WalkingStepLength_max_startDate_hr",
-                "workout_totalEnergyBurnedUnit",
-                "AppleStandHour_nhours_max_min",
-                "AppleStandHour_nhours_max_max",
-                "workout_totalEnergyBurned",
-                "is_weekend",
-                "AppleStandHour_min_endDate_hr"]
+        # to_keep = ["date", "sleep_hours", "is_workday", "day_of_week", "day_of_year",
+        #             "distance_per_step",
+        #             "AppleStandTime_sum_hrs_between",
+        #             "min_endDate_max_hr",
+        #             "doy_cos",
+        #             "BasalEnergyBurned",
+        #             "avg_startDate_max_hr",
+        #             "month",
+        #             "DistanceWalkingRunning",
+        #             "StairDescentSpeed_avg_endDate_hr",
+        #             "min_startDate_max_hr",
+        #             "dow_median",
+        #             "BasalEnergyBurned_max_hrs_between",
+        #             "DistanceWalkingRunning_avg_startDate_hr",
+        #             "AppleExerciseTime_sum_hrs_between",
+        #             "is_tuesday",
+        #             "AppleStandTime_nhours_avg_avg",
+        #             "FlightsClimbed_nhours_avg_avg",
+        #             "ActiveEnergyBurned_sum_hrs_between",
+        #             "AppleStandTime_avg_endDate_hr",
+        #             "StepCount",
+        #             "appleStandHours",
+        #             "appleExerciseTime",
+        #             "avg_endDate_max_hr",
+        #             "WalkingDoubleSupportPercentage_sum_hrs_between",
+        #             "calorie_per_distance",
+        #             "AppleExerciseTime_max_hrs_between",
+        #             "StepCount_avg_startDate_hr",
+        #             "DistanceWalkingRunning_nhours_avg_avg",
+        #             "HeadphoneAudioExposure",
+        #             "max_startDate_min_hr",
+        #             "max_startDate_max_hr",
+        #             "FlightsClimbed_sum_hrs_between",
+        #             "StepCount_avg_endDate_hr",
+        #             "FlightsClimbed_max_hrs_between",
+        #             "StepCount_nhours_avg_avg",
+        #             "StairDescentSpeed_nhours_avg_avg",
+        #             "min_startDate_min_hr",
+        #             "calorie_per_step",
+        #             "activeEnergyBurned",
+        #             "OxygenSaturation_avg_endDate_hr",
+        #             "OxygenSaturation",
+        #             "StepCount_max_hrs_between",
+        #             "AppleStandTime_avg_startDate_hr",
+        #             "BasalEnergyBurned_sum_hrs_between",
+        #             "avg_startDate_min_hr",
+        #             "min_endDate_min_hr",
+        #             "HeadphoneAudioExposure_max_hrs_between",
+        #             "AppleExerciseTime_avg_endDate_hr",
+        #             "DistanceWalkingRunning_avg_endDate_hr",
+        #             "doy_sin",
+        #             "DistanceWalkingRunning_max_hrs_between",
+        #             "WalkingStepLength_max_hrs_between",
+        #             "StairAscentSpeed_max_hrs_between",
+        #             "StepCount_sum_hrs_between",
+        #             "StairDescentSpeed_max_hrs_between",
+        #             "RestingHeartRate_max_hrs_between",
+        #             "doy_mean",
+        #             "OxygenSaturation_nhours_avg_avg",
+        #             "avg_endDate_min_hr",
+        #             "DistanceWalkingRunning_sum_hrs_between",
+        #             "HeartRate_max_hrs_between",
+        #             "workout_totalDistance",
+        #             "VO2Max_max_hrs_between",
+        #             "FlightsClimbed",
+        #             "WalkingStepLength_sum_hrs_between",
+        #             "HeadphoneAudioExposure_sum_hrs_between",
+        #             "WalkingSpeed_max_hrs_between",
+        #             "VO2Max_sum_hrs_between",
+        #             "HeartRate",
+        #             "BodyMass",
+        #             "WalkingHeartRateAverage",
+        #             "WalkingAsymmetryPercentage_sum_hrs_between",
+        #             "AppleStandHour_sum_hrs_between"]
         
-        df = df[to_keep]
+        # df = df[to_keep]
         
         self.columns = df.columns
         self.train = df.reset_index(drop=True)
@@ -577,6 +518,8 @@ class POG4_Dataset():
         if preprocess:
             df = pd.DataFrame(self.preprocessor.transform(df), columns = self.features)   
         
+        # Print df datatype
+        logging.info(f"Submission data type: {df.dtypes}")
         preds = model.predict(df) # predictions
         
         # Create submission dataframe with date and predictions
@@ -584,49 +527,6 @@ class POG4_Dataset():
         
         self.last_submission = sub
         return sub
-    
-    @staticmethod
-    def _estimate_sleep_lengths_hmm(df, feature, sleep_start_hour=22, sleep_end_hour=9, resample_freq='3T', window_size=2, n_components=2):
-        df['timestamp'] = pd.to_datetime(df['startDate'])
-        df = df.drop_duplicates(subset=['timestamp']).sort_values(by=['timestamp'])
-
-        # Create a new DataFrame with a fixed interval, merge and interpolate
-        df_resampled = pd.DataFrame(pd.date_range(start=df['timestamp'].min(), end=df['timestamp'].max(), freq=resample_freq), columns=['timestamp'])
-        df_resampled = pd.merge(df_resampled, df, on='timestamp', how='left').fillna(method='ffill')
-
-        # Apply moving average filter to the feature
-        df_resampled['filtered_feature'] = df_resampled[feature].ewm(span=window_size).mean()
-
-        # Prepare the feature data for the HMM
-        feature_data = df_resampled['filtered_feature'].to_numpy().reshape(-1, 1)
-
-        # Define a 2-state Gaussian HMM (sleep and wake states)
-        model = hmm.GaussianHMM(n_components=n_components, covariance_type="diag", n_iter=1000, init_params='stmc')
-
-        # Fit the HMM to the feature data
-        model.fit(feature_data)
-
-        # Get the most likely sleep/wake state sequence
-        state_sequence = model.predict(feature_data)
-
-        # Add the sleep/wake state sequence to the DataFrame
-        df_resampled['sleep'] = state_sequence
-
-        # Restrict sleep detection to the specified sleep window
-        df_resampled['sleep'] = np.where((df_resampled['sleep'] == 1) & 
-                                        ((df_resampled['timestamp'].dt.hour >= sleep_start_hour) | 
-                                        (df_resampled['timestamp'].dt.hour < sleep_end_hour)), 1, 0)
-
-        # Calculate estimated sleep hours for each day
-        df_sleep = df_resampled.groupby(df_resampled['timestamp'].dt.floor('D')).agg({'sleep': 'sum'})
-        df_sleep['sleep_hours'] = df_sleep['sleep'] * pd.to_timedelta(resample_freq).seconds / 3600
-
-        df_sleep = df_sleep.reset_index()
-        df_sleep['date'] = pd.to_datetime(df_sleep['timestamp']).dt.date
-        df_sleep = df_sleep.drop(columns=['timestamp', 'sleep'])
-        df_sleep.loc[df_sleep.sleep_hours == 0, 'sleep_hours'] = np.nan
-
-        return df_sleep
     
     def to_parquet(self, train_path: str = "./train_data.parquet") -> None:
         """Save data to parquet files"""

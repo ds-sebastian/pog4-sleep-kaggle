@@ -1,0 +1,21 @@
+name: pog4_knn_sweep
+method: bayes
+metric:
+  name: RMSE
+  goal: minimize
+parameters:
+  n_neighbors:
+    min: 2
+    max: 70
+  weights:
+    values: ["uniform", "distance"]
+  p:
+    values: [1, 2]
+  imputer:
+    values: ["mean", "median", "most_frequent"]
+  scaler:
+    values: ["minmax", "standard", "robust"]
+early_terminate:
+  type: hyperband
+  max_iter: 100
+  s: 2

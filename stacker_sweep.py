@@ -7,12 +7,16 @@ import json
 import numpy as np
 import pandas as pd
 
-from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, StackingRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Ridge
+
 
 import wandb
 
@@ -28,17 +32,44 @@ def sweep():
     run = wandb.init()
     config = wandb.config
     
-    et_params = {
-        "n_estimators": config.n_estimators,
-        "max_depth": config.max_depth,
-        "min_samples_split": config.min_samples_split,
-        "min_samples_leaf": config.min_samples_leaf,
+    #KNN
+    knn_params = {
+        "n_neighbors": config.knn_n_neighbors,
+        "weights": config.knn_weights,
+        "p": config.knn_p
     }
 
-    model = ExtraTreesRegressor(**et_params, random_state=seed)
+    knn_model = KNeighborsRegressor(**knn_params)
+    
+    # Random Forest
+    rf_params = {
+        "n_estimators": config.rf_n_estimators,
+        "max_depth": config.rf_max_depth,
+        "min_samples_split": config.rf_min_samples_split,
+        "min_samples_leaf": config.rf_min_samples_leaf,
+    }
+
+    rf_model = RandomForestRegressor(**rf_params, random_state=seed, n_jobs=-1)
+    
+    # Extra Trees
+    et_params = {
+        "n_estimators": config.et_n_estimators,
+        "max_depth": config.et_max_depth,
+        "min_samples_split": config.et_min_samples_split,
+        "min_samples_leaf": config.et_min_samples_leaf,
+    }
+
+    et_model = ExtraTreesRegressor(**et_params, random_state=seed, n_jobs=-1)
+    
+    # Model stacking
+    stack_params = {
+        "estimators": [('knn', knn_model), ('rf', rf_model), ('et', et_model)],
+        "final_estimator": Ridge(alpha=config.stack_ridge_alpha),
+    }
+    model = StackingRegressor(**stack_params, n_jobs=-1)
     
     # Set up the cross-validation
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=3)
 
     # Scaler
     if config.scaler == "minmax":
@@ -59,12 +90,12 @@ def sweep():
     pipeline = Pipeline(steps=[("imputer", imputer), ("scaler", scaler), ("model", model)])
 
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error")
+    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error", n_jobs=-1)
     rmse_scores = np.sqrt(-cv_scores)
     avg_rmse = np.mean(rmse_scores)
     
     # Log the metrics to W&B
-    wandb.log({"RMSE": avg_rmse, "CV_scores": cv_scores.tolist()})
+    wandb.log({"RMSE": avg_rmse})
 
     run.finish()
     
@@ -74,29 +105,26 @@ if __name__ == "__main__":
     
     # Load the dataset
     data = POG4_Dataset()
-    #data.create_lags()
-    data.train_test_split()
-    #data.preprocess_data()
 
     # Using cross-validation so concat the train and test sets
-    X = pd.concat([data.X_train, data.X_test], axis = 0)
-    y = pd.concat([data.y_train, data.y_test], axis = 0)
+    X = data.X
+    y = data.y
     
     # Load the sweep configuration from the YAML file
-    with open("extratree_sweep_config.yml") as f:
+    with open("stacker_sweep_config.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_et")
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_stacker")
     wandb.agent(sweep_id, function=sweep)
     
     api = wandb.Api()
-    runs = api.runs("sgobat/pog4_et")
+    runs = api.runs("sgobat/pog4_stacker")
 
     best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config
-    with open("et_best_params.json", "w") as f:
+    with open("stacker_best_params.json", "w") as f:
         json.dump(best_params, f, indent=4)
 
     print(f"Best run: {best_run.id}")

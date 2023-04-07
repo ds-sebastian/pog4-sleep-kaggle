@@ -1,0 +1,23 @@
+{
+    "knn_p": 1,
+    "svm_C": 74.7029212367652,
+    "scaler": "robust",
+    "imputer": "most_frequent",
+    "svm_gamma": 0.003187143765297799,
+    "svm_kernel": "poly",
+    "knn_weights": "uniform",
+    "svm_epsilon": 0.690046248245104,
+    "et_bootstrap": false,
+    "et_max_depth": 10,
+    "rf_bootstrap": false,
+    "rf_max_depth": 16,
+    "et_n_estimators": 543,
+    "knn_n_neighbors": 75,
+    "rf_max_features": "auto",
+    "rf_n_estimators": 1878,
+    "stack_ridge_alpha": 6.65428566095866,
+    "et_min_samples_leaf": 7,
+    "rf_min_samples_leaf": 10,
+    "et_min_samples_split": 3,
+    "rf_min_samples_split": 6
+}

@@ -1,0 +1,8 @@
+{
+    "C": 29.728990216280643,
+    "gamma": 0.617957865633548,
+    "kernel": "rbf",
+    "scaler": "minmax",
+    "epsilon": 0.5285571104093831,
+    "imputer": "median"
+}

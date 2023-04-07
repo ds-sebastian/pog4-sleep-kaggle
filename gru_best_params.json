@@ -1,12 +1,12 @@
 {
-    "lookback": 7,
+    "lookback": 1,
     "criterion": "mae",
     "optimizer": "adamw",
-    "batch_size": 229,
-    "num_epochs": 145,
-    "num_layers": 3,
-    "hidden_size": 87,
-    "dropout_rate": 0.5003994915156104,
-    "learning_rate": 0.00016889362226400493,
-    "activation_function": "relu"
+    "batch_size": 210,
+    "num_epochs": 291,
+    "num_layers": 1,
+    "hidden_size": 287,
+    "dropout_rate": 0.5964791189037534,
+    "learning_rate": 0.007953492092921025,
+    "activation_function": "sigmoid"
 }

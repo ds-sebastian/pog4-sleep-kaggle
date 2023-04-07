@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
@@ -28,14 +28,14 @@ def sweep():
     run = wandb.init()
     config = wandb.config
     
-    et_params = {
-        "n_estimators": config.n_estimators,
-        "max_depth": config.max_depth,
-        "min_samples_split": config.min_samples_split,
-        "min_samples_leaf": config.min_samples_leaf,
+    svm_params = {
+        "kernel": config.kernel,
+        "C": config.C,
+        "epsilon": config.epsilon,
+        "gamma": config.gamma
     }
 
-    model = ExtraTreesRegressor(**et_params, random_state=seed)
+    model = SVR(**svm_params)
     
     # Set up the cross-validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -83,20 +83,20 @@ if __name__ == "__main__":
     y = pd.concat([data.y_train, data.y_test], axis = 0)
     
     # Load the sweep configuration from the YAML file
-    with open("extratree_sweep_config.yml") as f:
+    with open("svm_sweep_config.yml") as f:
         sweep_config = yaml.safe_load(f)
 
-    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_et")
+    sweep_id = wandb.sweep(sweep=sweep_config, project="pog4_svm")
     wandb.agent(sweep_id, function=sweep)
     
     api = wandb.Api()
-    runs = api.runs("sgobat/pog4_et")
+    runs = api.runs("sgobat/pog4_svm")
 
     best_run = min(runs, key=lambda run: run.summary.get('RMSE', float('inf')))
 
     # Save the best parameters to a JSON file
     best_params = best_run.config
-    with open("et_best_params.json", "w") as f:
+    with open("svm_best_params.json", "w") as f:
         json.dump(best_params, f, indent=4)
 
     print(f"Best run: {best_run.id}")
