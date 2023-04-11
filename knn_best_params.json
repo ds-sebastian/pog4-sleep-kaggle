@@ -1,7 +1,7 @@
 {
     "p": 1,
     "scaler": "standard",
-    "imputer": "most_frequent",
-    "weights": "uniform",
-    "n_neighbors": 44
+    "imputer": "median",
+    "weights": "distance",
+    "n_neighbors": 17
 }

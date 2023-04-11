@@ -64,20 +64,27 @@ if __name__ == "__main__":
     
     # Load the dataset
     data = POG4_Dataset()
-    data.train_test_split()
-
+    
+    train = data.train[(data.train['date'] >= pd.to_datetime('2020-09-25').date()) & (data.train['date'] <= pd.to_datetime('2021-11-30').date())]
+    X_train = train.drop(['sleep_hours', 'date'], axis=1)
+    y_train = train.sleep_hours.fillna(method="ffill").fillna(method="bfill").fillna(7.0)
+    
+    test = data.train[(data.train['date'] >= pd.to_datetime('2021-12-01').date()) & (data.train['date'] <= pd.to_datetime('2022-12-31').date())]
+    X_test = test.drop(['sleep_hours', 'date'], axis=1)
+    y_test = test['sleep_hours'].fillna(method="ffill").fillna(method="bfill").fillna(7.0)
+    
     imputer = SimpleImputer(strategy="median")
     scaler_f = RobustScaler() 
     scaler_t = RobustScaler() 
 
-    X_train_imputed = pd.DataFrame(imputer.fit_transform(data.X_train), columns=data.X.columns) # Imputer 
-    X_train_scaled = pd.DataFrame(scaler_f.fit_transform(X_train_imputed), columns=data.X.columns) # Scaler
+    X_train_imputed = pd.DataFrame(imputer.fit_transform(X_train), columns=X_train.columns) # Imputer 
+    X_train_scaled = pd.DataFrame(scaler_f.fit_transform(X_train_imputed), columns=X_train.columns) # Scaler
 
-    X_test_imputed = pd.DataFrame(imputer.transform(data.X_test), columns=data.X.columns) # Imputer
-    X_test_scaled = pd.DataFrame(scaler_f.transform(X_test_imputed), columns=data.X.columns) # Scaler
+    X_test_imputed = pd.DataFrame(imputer.transform(X_test), columns=X_test.columns) # Imputer
+    X_test_scaled = pd.DataFrame(scaler_f.transform(X_test_imputed), columns=X_test.columns) # Scaler
 
-    y_train_scaled = pd.DataFrame(scaler_t.fit_transform(data.y_train.values.reshape(-1, 1)), columns=["sleep_hours"])
-    y_test_scaled = pd.DataFrame(scaler_t.transform(data.y_test.values.reshape(-1, 1)), columns=["sleep_hours"])
+    y_train_scaled = pd.DataFrame(scaler_t.fit_transform(y_train.values.reshape(-1, 1)), columns=["sleep_hours"])
+    y_test_scaled = pd.DataFrame(scaler_t.transform(y_test.values.reshape(-1, 1)), columns=["sleep_hours"])
 
     target_scaler = scaler_t
     

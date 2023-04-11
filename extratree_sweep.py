@@ -75,12 +75,11 @@ if __name__ == "__main__":
     # Load the dataset
     data = POG4_Dataset()
     #data.create_lags()
-    data.train_test_split()
-    #data.preprocess_data()
+    train = data.train[(data.train['date'] >= pd.to_datetime('2020-09-25').date()) & (data.train['date'] <= pd.to_datetime('2021-11-30').date())]
 
     # Using cross-validation so concat the train and test sets
-    X = pd.concat([data.X_train, data.X_test], axis = 0)
-    y = pd.concat([data.y_train, data.y_test], axis = 0)
+    X = train.drop(['sleep_hours', 'date'], axis=1)
+    y = train.sleep_hours.fillna(method="ffill").fillna(method="bfill").fillna(7.0)
     
     # Load the sweep configuration from the YAML file
     with open("extratree_sweep_config.yml") as f:

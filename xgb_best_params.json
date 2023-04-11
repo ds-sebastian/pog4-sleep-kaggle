@@ -1,12 +1,12 @@
 {
-    "eta": 0.17075594525437782,
-    "alpha": 9.041693109990469,
-    "lmbda": 1.3001428098901135,
-    "scaler": "minmax",
-    "imputer": "mean",
+    "eta": 0.116063620529041,
+    "alpha": 0.1171601822446966,
+    "lmbda": 2.1253448473633996,
+    "scaler": "robust",
+    "imputer": "median",
     "max_depth": 3,
-    "subsample": 0.10598059245687068,
-    "n_estimators": 1458,
-    "learning_rate": 0.1557093298606608,
-    "colsample_bytree": 0.40406706027916595
+    "subsample": 0.8415844493278959,
+    "n_estimators": 1583,
+    "learning_rate": 0.01526758591034806,
+    "colsample_bytree": 0.8010723436922423
 }
