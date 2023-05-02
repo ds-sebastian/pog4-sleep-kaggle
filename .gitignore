@@ -6,3 +6,4 @@ data/xml_export
 *.parquet
 *.xml
 *.html
+*.csv

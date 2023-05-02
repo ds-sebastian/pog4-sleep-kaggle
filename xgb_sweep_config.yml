@@ -6,13 +6,13 @@ metric:
 parameters:
   learning_rate:
     min: 0.0001
-    max: 0.2
+    max: 0.8
   max_depth:
     min: 2
-    max: 12
+    max: 100
   n_estimators:
     min: 100
-    max: 2000
+    max: 10000
   subsample:
     min: 0.1
     max: 1.0
@@ -25,9 +25,6 @@ parameters:
   alpha:
     min: 0.0
     max: 10.0
-  eta:
-    min: 0.01
-    max: 0.3
   scaler:
     values: [minmax, robust]
   imputer:

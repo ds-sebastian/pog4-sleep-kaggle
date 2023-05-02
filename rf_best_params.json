@@ -1,9 +1,9 @@
 {
-    "scaler": "robust",
-    "imputer": "median",
-    "max_depth": 85,
+    "scaler": "minmax",
+    "imputer": "most_frequent",
+    "max_depth": 96,
     "max_features": "auto",
-    "n_estimators": 1366,
+    "n_estimators": 1320,
     "min_samples_leaf": 1,
-    "min_samples_split": 2
+    "min_samples_split": 6
 }

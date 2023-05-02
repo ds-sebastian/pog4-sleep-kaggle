@@ -36,20 +36,20 @@ def sweep():
         "n_estimators": config.n_estimators,
         "subsample": config.subsample,
         "colsample_bytree": config.colsample_bytree,
-        'eta': config.eta,
-        "objective": "reg:squarederror",
         "seed": 42
     }
 
     model = xgb.XGBRegressor(**xgb_params, 
-                             gpu_id=0, 
-                             tree_method="gpu_hist",
-                             random_state=seed
-                             )
+                            gpu_id=0, 
+                            tree_method="gpu_hist",
+                            random_state=seed
+                            )
+
+    
     
     # Set up the cross-validation
-    tscv = TimeSeriesSplit(n_splits=5)
-
+    # tscv = TimeSeriesSplit(n_splits=5)
+    
     # Scaler
     if config.scaler == "minmax":
         scaler = MinMaxScaler()
@@ -73,7 +73,7 @@ def sweep():
     pipeline = Pipeline(steps=[("imputer", imputer), ("scaler", scaler), ("model", model)])
 
     # Perform cross-validation and calculate metrics
-    cv_scores = cross_val_score(pipeline, X, y, cv=tscv, scoring="neg_mean_squared_error")
+    cv_scores = cross_val_score(pipeline, X, y, cv=3, scoring="neg_mean_squared_error")
     rmse_scores = np.sqrt(-cv_scores)
     avg_rmse = np.mean(rmse_scores)
     
@@ -104,8 +104,11 @@ if __name__ == "__main__":
 
     train = data.train[(data.train['date'] >= pd.to_datetime('2020-09-25').date()) & (data.train['date'] <= pd.to_datetime('2021-11-30').date())]
 
+    # Drop non-numeric columns
+    train = train.select_dtypes(exclude=['object'])
+    
     # Using cross-validation so concat the train and test sets
-    X = train.drop(['sleep_hours', 'date'], axis=1)
+    X = train.drop(['sleep_hours', 'date'], axis=1, errors='ignore')
     y = train.sleep_hours.fillna(method="ffill").fillna(method="bfill").fillna(7.0)
 
     # Load the sweep configuration from the YAML file
